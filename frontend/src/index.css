@@ -1,0 +1,124 @@
+@import url('https://fonts.googleapis.com/css2?family=Staatliches&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* LIGHT MODE (Sideline Mode) - Blasts through sun glare */
+  :root {
+    --background: 0 0% 100%; 
+    --foreground: 220 25% 10%; 
+
+    --card: 210 20% 98%; 
+    --card-foreground: 220 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 10%;
+
+    --primary: 190 100% 45%; 
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 90%;
+    --secondary-foreground: 220 25% 10%;
+
+    --muted: 220 14% 88%;
+    --muted-foreground: 220 15% 40%;
+
+    --accent: 340 85% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 85%;
+    --input: 210 20% 85%;
+    --ring: 190 100% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --training: 340 85% 55%;
+    --training-foreground: 0 0% 100%;
+    --matchday: 190 100% 45%;
+    --matchday-foreground: 0 0% 100%;
+    --success: 152 69% 40%;
+    --success-foreground: 0 0% 100%;
+    --streak-fire: 15 90% 55%;
+    --stat-value: 220 25% 10%; 
+    --card-border: 210 20% 85%;
+    --section-title: 210 15% 40%;
+    --bottom-nav-bg: 0 0% 100%;
+  }
+
+  /* DARK MODE (Locker Room Mode) */
+  .dark {
+    --background: 220 25% 10%;
+    --foreground: 190 100% 95%;
+    
+    --card: 220 30% 14%;
+    --card-foreground: 190 100% 95%;
+    
+    --popover: 220 30% 14%;
+    --popover-foreground: 190 100% 95%;
+    
+    --primary: 190 100% 50%;
+    --primary-foreground: 220 25% 10%;
+    
+    --secondary: 220 30% 18%;
+    --secondary-foreground: 190 100% 95%;
+    
+    --muted: 220 20% 20%;
+    --muted-foreground: 210 15% 65%;
+    
+    --accent: 340 85% 55%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 210 30% 22%;
+    --input: 210 30% 22%;
+    --ring: 190 100% 50%;
+    
+    --training: 340 85% 55%;
+    --training-foreground: 0 0% 100%;
+    --matchday: 190 100% 50%;
+    --matchday-foreground: 220 25% 10%;
+    --success: 152 69% 45%;
+    --success-foreground: 0 0% 100%;
+    --streak-fire: 15 90% 55%;
+    --stat-value: 190 100% 50%;
+    --card-border: 210 40% 30%;
+    --section-title: 210 20% 70%;
+    --bottom-nav-bg: 220 30% 12%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+
+  /* --- STAATLICHES RULES --- */
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: 'Staatliches', sans-serif !important;
+    letter-spacing: 0.05em;
+    font-weight: normal; 
+  }
+
+  .stats-value, button {
+    font-family: 'Staatliches', sans-serif !important;
+    letter-spacing: 0.05em;
+    font-weight: normal;
+  }
+}
+
+@keyframes wipe-down {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(0); }
+}
