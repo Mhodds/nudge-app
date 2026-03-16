@@ -1,4 +1,3 @@
-import { useMatchStats } from "@/hooks/useSessions";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -9,15 +8,33 @@ import {
   YAxis,
   ReferenceLine,
   Tooltip,
+  Label,
 } from "recharts";
 
-const FormChip = () => {
-  const s = useMatchStats();
-  const delta = s.formDelta;
-  if (delta === null) return null;
+// --- UPDATED FORM CHIP: Now calculates based on the ACTIVE filter ---
+const FormChip = ({ sessions = [] }: { sessions: any[] }) => {
+  if (sessions.length < 2) return null;
+
+  // Sort by date (newest first)
+  const sorted = [...sessions].sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  const getAcc = (s: any) => {
+    const pk = s.kicks.filter((k: any) => k.kickType !== "try" && k.kickType !== "drop_goal");
+    return pk.length > 0 
+      ? Math.round((pk.filter((k: any) => k.result === "made").length / pk.length) * 100) 
+      : 0;
+  };
+
+  const currentAcc = getAcc(sorted[0]);
+  const previousAcc = getAcc(sorted[1]);
+  const delta = currentAcc - previousAcc;
+
   const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
   const colorClass = delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-muted-foreground";
   const sign = delta > 0 ? "+" : "";
+
   return (
     <div className="mt-3 flex justify-center">
       <span className={`inline-flex items-center gap-1.5 rounded-full border border-card-border bg-card px-3 py-1 font-display text-[11px] font-bold tracking-wider ${colorClass}`}>
@@ -27,18 +44,18 @@ const FormChip = () => {
   );
 };
 
-// --- UPDATED: Now accepting 'sessions' as a prop from Analytics.tsx ---
 const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
-  
-  // We no longer filter specifically for "match" here, because Analytics.tsx does the filtering for us!
+  // Sort for the graph (oldest to newest)
   const displaySessions = [...sessions].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   if (displaySessions.length < 2) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-card-border bg-card py-10">
-        <svg className="mb-3 h-8 w-8 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-        <p className="px-6 text-center font-display text-xs font-semibold tracking-wider text-muted-foreground">
-          VELOCITY BUILDING AFTER 2 SESSIONS IN THIS CATEGORY
+        <svg className="mb-3 h-8 w-8 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        <p className="px-6 text-center font-display text-[10px] font-black italic tracking-widest text-muted-foreground uppercase">
+          Velocity building after 2 sessions
         </p>
       </div>
     );
@@ -91,8 +108,8 @@ const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
     return (
       <div className="rounded-lg border border-card-border bg-card px-3 py-2 shadow-lg">
         <p className="font-display text-xs font-bold text-primary">{d.accuracy}%</p>
-        <p className="font-mono text-[10px] text-muted-foreground">
-          {d.date} {d.teamName ? `• vs ${d.teamName}` : ""}
+        <p className="font-mono text-[9px] text-muted-foreground uppercase">
+          {d.date} {d.teamName ? `• VS ${d.teamName}` : ""}
         </p>
       </div>
     );
@@ -101,7 +118,7 @@ const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
   return (
     <div className="rounded-xl border border-card-border bg-card p-4">
       <ResponsiveContainer width="100%" height={180}>
-        <LineChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+        <LineChart data={data} margin={{ top: 10, right: 60, bottom: 0, left: -20 }}>
           <defs>
             <linearGradient id="velocityGlow" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="hsl(190, 100%, 50%)" stopOpacity={0.6} />
@@ -113,25 +130,48 @@ const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
             </linearGradient>
           </defs>
           <XAxis dataKey="label" hide={true} />
-          <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: "hsl(210, 15%, 65%)", fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
-          <ReferenceLine y={seasonMean} stroke="hsl(190, 100%, 95%)" strokeDasharray="4 4" strokeOpacity={0.3} label={{ value: `AVG ${seasonMean}%`, position: "right", fill: "hsl(210, 15%, 65%)", fontSize: 10 }} />
+          <YAxis 
+            domain={[0, 100]} 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: "hsl(215, 15%, 55%)", fontSize: 10, fontWeight: 'bold' }} 
+            tickFormatter={(v: number) => `${v}%`} 
+          />
+          
+          <ReferenceLine 
+            y={seasonMean} 
+            stroke="hsl(215, 25%, 40%)" 
+            strokeDasharray="4 4" 
+            strokeOpacity={0.6}
+          >
+            <Label 
+              value={`AVG ${seasonMean}%`} 
+              position="right" 
+              fill="hsl(215, 25%, 45%)" 
+              fontSize={10} 
+              fontWeight="900"
+              className="font-display italic"
+              dx={10}
+            />
+          </ReferenceLine>
+
           <Tooltip content={<CustomTooltip />} cursor={false} />
           <Line type="monotone" dataKey="rollingAvg" stroke="url(#rollingGlow)" strokeWidth={1.5} strokeDasharray="6 3" dot={false} activeDot={false} isAnimationActive={true} />
           <Line type="monotone" dataKey="accuracy" stroke="url(#velocityGlow)" strokeWidth={2.5} dot={<CustomDot />} activeDot={{ r: 5, fill: "hsl(190, 100%, 50%)" }} isAnimationActive={true} />
         </LineChart>
       </ResponsiveContainer>
       
-      {/* Keeping the FormChip for Match Day vibes */}
-      <FormChip />
+      {/* Passing the sessions to the chip so it knows the context */}
+      <FormChip sessions={sessions} />
 
-      <div className="mt-2 flex items-center justify-center gap-5">
+      <div className="mt-4 flex items-center justify-center gap-5 border-t border-card-border/50 pt-3">
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 rounded-full bg-primary" />
-          <span className="font-display text-[10px] tracking-wider text-muted-foreground uppercase">Accuracy</span>
+          <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Accuracy</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 rounded-full border-t border-dashed" style={{ borderColor: "hsl(45, 100%, 60%)" }} />
-          <span className="font-display text-[10px] tracking-wider text-muted-foreground uppercase">Rolling 3</span>
+          <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Rolling 3</span>
         </div>
       </div>
     </div>

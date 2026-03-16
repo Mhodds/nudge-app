@@ -1,7 +1,5 @@
-import { useSessions } from "@/hooks/useSessions";
 import { Kick } from "@/types/session";
 import { Grid3X3 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const distBands = ["0-22m", "22-30m", "30-40m", "40+m"];
 const angleCols = [
@@ -27,38 +25,25 @@ function getTextColor(pct: number | null): string {
   return "hsl(190, 100%, 95%)";
 }
 
+// Notice the new 'sessions' prop. We are passing the data IN now.
 interface Props {
-  filter: "aggregated" | "match" | "skill";
+  sessions?: any[]; 
+  // We keep 'filter' here just in case another page uses this component
+  // without passing 'sessions' explicitly.
+  filter?: "aggregated" | "match" | "skill"; 
 }
 
-const EfficiencyMatrix = ({ filter }: Props) => {
-  const { data: allSessions = [], isLoading } = useSessions();
-
-  if (isLoading) {
-    return (
-      <div className="rounded-xl border border-card-border bg-card p-4">
-        <div className="grid grid-cols-8 gap-1">
-          {Array.from({ length: 32 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-10 rounded-md" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-  const sessions = allSessions.filter((s) => {
-    if (filter === "match") return s.type === "match";
-    if (filter === "skill") return s.type === "training";
-    return true;
-  });
-
-  const allKicks: Kick[] = sessions.flatMap((s) => s.kicks);
+const EfficiencyMatrix = ({ sessions = [] }: Props) => {
+  
+  // We extract all kicks from the sessions passed into the component
+  const allKicks: Kick[] = sessions.flatMap((s) => s.kicks || []);
 
   if (allKicks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-card-border bg-card py-10">
         <Grid3X3 className="mb-3 h-8 w-8 text-muted-foreground" />
         <p className="px-6 text-center font-display text-xs font-semibold tracking-wider text-muted-foreground">
-          LOG YOUR FIRST SESSION TO BUILD YOUR EFFICIENCY MATRIX
+          NO KICKS FOUND FOR THIS TIMEFRAME
         </p>
       </div>
     );

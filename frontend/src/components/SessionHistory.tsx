@@ -64,11 +64,18 @@ const SessionHistory = () => {
             const ts = new Date(session.timestamp);
             const dateStr = ts.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }).toUpperCase();
             const timeStr = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+            
+            const isGoldenBoot = session.id === perfectShiftId;
+
             return (
               <button
                 key={session.id}
                 onClick={() => navigate(`/session/${session.id}`)}
-                className="flex items-center justify-between rounded-xl border border-card-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/30"
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
+                  isGoldenBoot
+                    ? "relative z-10 border-yellow-500/50 bg-yellow-500/10 shadow-[0_0_20px_rgba(234,179,8,0.3)]"
+                    : "border-card-border bg-card hover:border-primary/30"
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`rounded-md px-2 py-0.5 font-display text-[11px] font-bold tracking-wider ${
@@ -90,14 +97,16 @@ const SessionHistory = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {session.id === perfectShiftId && (
+                  {isGoldenBoot && (
                     <div className="flex items-center gap-1 rounded-md bg-yellow-500/20 px-2 py-1">
                       <Trophy className="h-3.5 w-3.5 text-yellow-500" />
                       <span className="font-display text-[11px] font-bold tracking-wider text-yellow-500">GOLDEN BOOT</span>
                     </div>
                   )}
                   <div className="text-right">
-                    <p className="font-display text-lg font-bold text-primary">{session.accuracy}%</p>
+                    <p className={`font-display text-lg font-bold ${isGoldenBoot ? 'text-yellow-500' : 'text-primary'}`}>
+                      {session.accuracy}%
+                    </p>
                     <p className="font-display text-[11px] tracking-wider text-muted-foreground">
                       {session.madeCount}/{session.totalCount}
                     </p>

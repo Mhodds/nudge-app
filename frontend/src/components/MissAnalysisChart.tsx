@@ -1,92 +1,69 @@
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
-const RUCK_COLORS = {
-  Pure: '#00D4FF',
-  Hook: '#E6337A',
-  Push: '#F06422',
-  Short: '#9CA3AF',
-};
+interface MissAnalysisChartProps {
+  data: {
+    name: string;
+    value: number;
+  }[];
+}
 
-const MissAnalysisChart = ({ data }) => {
-  const totalMisses = data.reduce((acc, curr) => acc + curr.value, 0);
+const COLORS = ["hsl(190, 100%, 50%)", "hsl(330, 85%, 55%)", "hsl(30, 100%, 60%)", "#a855f7"];
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const value = payload[0].value;
-      const percentage = totalMisses > 0 ? Math.round((value / totalMisses) * 100) : 0;
-      return (
-        <div className="bg-[#1C2436] border border-[#2A3548] p-2 rounded-lg shadow-xl">
-          <p className="text-[#E6FCFF] text-[10px] font-black uppercase tracking-wider">
-            {payload[0].name}: <span className="text-[#00D4FF]">{percentage}%</span>
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+const MissAnalysisChart = ({ data }: MissAnalysisChartProps) => {
+  if (data.length === 0) return null;
 
-  const sortedData = [...data].sort((a, b) => b.value - a.value);
-  const topMiss = sortedData[0];
-  const topPercentage = totalMisses > 0 ? Math.round((topMiss.value / totalMisses) * 100) : 0;
+  const total = data.reduce((acc, item) => acc + item.value, 0);
+
+  // Find the top miss type for the center display
+  const topMiss = [...data].sort((a, b) => b.value - a.value)[0];
+  const topPercentage = total > 0 ? Math.round((topMiss.value / total) * 100) : 0;
 
   return (
-    <div className="bg-card border border-card-border p-4 rounded-[20px] shadow-sm w-full max-w-md mx-auto">
-      {/* Tightened Header */}
-      <div className="flex justify-between items-center mb-2">
-        <div>
-          <h3 className="text-foreground text-sm font-black tracking-tight uppercase italic">Miss DNA</h3>
-        </div>
-        <div className="bg-secondary/50 px-2 py-0.5 rounded-md border border-card-border">
-          <span className="text-primary text-[10px] font-black">{totalMisses} TOTAL</span>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between gap-2">
-        {/* Shrunken Chart Container */}
-        <div className="h-32 w-32 relative flex-shrink-0">
+    <div className="rounded-xl border border-card-border bg-card p-4 h-[180px]">
+      <div className="flex items-center justify-between gap-4 h-full">
+        {/* DONUT CHART */}
+        <div className="w-[120px] h-[120px] relative">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={35}
-                outerRadius={48}
+                innerRadius={42}
+                outerRadius={58}
                 paddingAngle={4}
                 dataKey="value"
                 stroke="none"
+                cornerRadius={4}
               >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={RUCK_COLORS[entry.name as keyof typeof RUCK_COLORS]} />
+                {data.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
-          
-          {/* Central Label - Adjusted for size */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-stat-value text-xl font-black leading-none">
-              {topPercentage}%
-            </span>
-            <span className="text-[8px] text-muted-foreground uppercase font-bold tracking-tighter">
-              {topMiss?.name || '---'}
-            </span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="font-display text-xl font-black italic leading-none text-foreground">{topPercentage}%</p>
+            <p className="font-display text-[8px] font-black uppercase tracking-wider text-muted-foreground mt-1">{topMiss.name}</p>
           </div>
         </div>
 
-        {/* Compact Legend - Switched to a vertical list next to the chart */}
-        <div className="flex-grow grid grid-cols-1 gap-1.5">
-          {data.map((item) => {
-            const itemPercent = totalMisses > 0 ? Math.round((item.value / totalMisses) * 100) : 0;
+        {/* LEGEND LIST */}
+        <div className="flex-1 flex flex-col gap-2">
+          {data.map((item, index) => {
+            const percentage = total > 0 ? Math.round((item.value / total) * 100) : 0;
             return (
-              <div key={item.name} className="flex items-center justify-between bg-secondary/20 px-2 py-1.5 rounded-lg border border-card-border/30">
-                <div className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: RUCK_COLORS[item.name as keyof typeof RUCK_COLORS] }} />
-                  <p className="text-muted-foreground text-[10px] font-bold uppercase">{item.name}</p>
+              <div key={item.name} className="flex items-center justify-between gap-2 rounded-lg bg-secondary/10 px-3 py-2 border border-card-border/30">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <p className="font-display text-[10px] font-black uppercase italic tracking-[0.1em] text-foreground">
+                    {item.name}
+                  </p>
                 </div>
-                <p className="text-foreground text-[10px] font-black">{itemPercent}%</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="font-mono text-sm font-bold text-foreground">{percentage}%</p>
+                  <p className="font-mono text-[9px] text-muted-foreground">({item.value})</p>
+                </div>
               </div>
             );
           })}

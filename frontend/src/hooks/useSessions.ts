@@ -6,7 +6,7 @@ import {
   saveSession,
   updateSession,
   deleteSession,
-  getPerfectShiftId,
+  // Note: We removed getPerfectShiftId from here because we are building a better one below!
 } from "@/lib/sessions";
 import { Session } from "@/types/session";
 import { getMatchStats } from "@/lib/stats";
@@ -62,10 +62,45 @@ export function useSession(id: string) {
   });
 }
 
+// THE "HIJACKED" HOOK: Bulletproof Golden Boot Logic
 export function usePerfectShiftId() {
   return useQuery({
     queryKey: ["perfectShift"],
-    queryFn: getPerfectShiftId,
+    queryFn: async () => {
+      // 1. Fetch all data (Cloud + Offline)
+      const cloud = await getSessions();
+      const allSessions = await mergeWithPending(cloud);
+
+      // 2. Strict Filter: MUST be a Match, MUST NOT be a drill
+      const matchSessions = allSessions.filter(s => {
+        const type = String(s.type || '').toLowerCase().trim();
+        const name = String(s.teamName || s.drillName || '').toLowerCase();
+        
+        const isMatch = type === 'match' || type === 'game';
+        const isNotTraining = !type.includes('train') && !type.includes('skill') && !name.includes('drill');
+        
+        return isMatch && isNotTraining;
+      });
+
+      if (matchSessions.length === 0) return null;
+
+      // 3. Map Accuracies
+      const matchAccuracies = matchSessions.map(s => {
+        const placeKicks = s.kicks?.filter(k => k.kickType === 'conversion' || k.kickType === 'penalty') || [];
+        const made = placeKicks.filter(k => k.result === 'made').length;
+        const acc = placeKicks.length > 0 ? (made / placeKicks.length) : 0;
+        return { id: s.id, acc, volume: placeKicks.length };
+      });
+
+      // 4. Find the Undisputed Winner (Highest Accuracy, tie-breaker is Volume)
+      const bestMatch = matchAccuracies.reduce((best, current) => {
+        if (!best || current.acc > best.acc) return current;
+        if (current.acc === best.acc && current.volume > best.volume) return current;
+        return best;
+      }, null as any);
+
+      return bestMatch && bestMatch.acc > 0 ? bestMatch.id : null;
+    },
   });
 }
 
