@@ -71,9 +71,10 @@ const SessionHistory = () => {
               <button
                 key={session.id}
                 onClick={() => navigate(`/session/${session.id}`)}
+                // We removed z-10 here so it doesn't overlap your BottomNav/Menu
                 className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
                   isGoldenBoot
-                    ? "relative z-10 border-yellow-500/50 bg-yellow-500/10 shadow-[0_0_20px_rgba(234,179,8,0.3)]"
+                    ? "relative border-yellow-500/50 bg-yellow-500/10 shadow-[0_0_20px_rgba(234,179,8,0.3)]"
                     : "border-card-border bg-card hover:border-primary/30"
                 }`}
               >

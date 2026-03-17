@@ -62,16 +62,18 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="mx-auto max-w-md">
-        {/* Header */}
+        
+        {/* BRANDED HEADER (TOP LEFT) */}
         <div className="flex items-start justify-between px-4 pt-8 pb-4">
-          <div>
-            <h1 className="font-display text-5xl tracking-widest text-foreground">
-              NUDGE
+          <div className="flex flex-col items-start text-left">
+            <h1 className="font-display text-2xl font-black italic tracking-tighter uppercase leading-none">
+              Nudge <span className="text-primary">Check</span>
             </h1>
-            <p className="mt-1 font-display text-xs tracking-widest text-section-title">
-              PRO ANALYTICS LOG
+            <p className="font-display text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mt-1.5">
+              Kicking Performance Lab
             </p>
           </div>
+          
           <div className="flex items-center gap-2">
             <RefreshButton onSync={syncPending} />
             {/* HERE IS YOUR NEW SUN/MOON BUTTON */}
