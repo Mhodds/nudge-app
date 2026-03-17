@@ -10,6 +10,8 @@ import {
 import { useSession, useUpdateSession, useDeleteSession } from "@/hooks/useSessions";
 import { Kick, Session } from "@/types/session";
 import BottomNav from "@/components/BottomNav";
+import EfficiencyMatrix from "@/components/EfficiencyMatrix";
+import MissAnalysisChart from "@/components/MissAnalysisChart"; // <--- NEW IMPORT
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -147,19 +149,6 @@ const PostSession = () => {
     setShowAppend(false);
   };
 
-  // Efficiency Matrix data
-  const getMatrixCell = (dist: string, angleKey: string) => {
-    const cellKicks = session.kicks.filter((k) => k.distance === dist && k.angle === angleKey);
-    if (cellKicks.length === 0) return null;
-    const made = cellKicks.filter((k) => k.result === "made").length;
-    const total = cellKicks.length;
-    const pct = Math.round((made / total) * 100);
-    return { made, total, pct };
-  };
-
-
-
-
   const saveMetaEdit = () => {
     const updated = { ...session, teamName: metaTeamName || undefined, timestamp: metaTimestamp };
     persist(updated);
@@ -169,6 +158,16 @@ const PostSession = () => {
   const ts = new Date(metaTimestamp);
   const dateStr = ts.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
   const timeStr = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+  // --- NEW MISS CHART LOGIC ---
+  const missedKicks = session.kicks.filter(k => k.result === 'miss');
+  const chartData = [
+    { name: 'Pure', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'pure').length },
+    { name: 'Hook', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'hook').length },
+    { name: 'Push', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'push').length },
+    { name: 'Short', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'short').length },
+  ].filter(item => item.value > 0);
+  // -----------------------------
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -288,55 +287,23 @@ const PostSession = () => {
           <h2 className="mb-3 font-display text-xs font-semibold tracking-widest text-section-title italic">
             EFFICIENCY MATRIX
           </h2>
-          <div className="overflow-x-auto rounded-xl border border-card-border bg-card p-3">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="pb-2 pr-1 text-left font-display text-[11px] font-bold tracking-wider text-muted-foreground" />
-                  {anglePositions.map((a) => (
-                    <th key={a.key} className="pb-2 text-center font-display text-[11px] font-bold tracking-wider text-muted-foreground">
-                      {a.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {distanceBands.map((dist) => (
-                  <tr key={dist}>
-                    <td className="pr-1 py-0.5 font-display text-[11px] font-bold tracking-wider text-muted-foreground whitespace-nowrap">
-                      {dist}
-                    </td>
-                    {anglePositions.map((a) => {
-                      const cell = getMatrixCell(dist, a.key);
-                      return (
-                        <td key={a.key} className="p-0.5">
-                          <div
-                            className={`flex flex-col items-center justify-center rounded-md py-1.5 font-display text-[11px] font-bold leading-tight ${
-                              cell
-                                ? cell.pct >= 50
-                                  ? "bg-primary/30 text-primary"
-                                  : "bg-training/30 text-training"
-                                : "bg-secondary text-muted-foreground"
-                            }`}
-                          >
-                            {cell ? (
-                              <>
-                                <span>{cell.pct}%</span>
-                                <span className="text-[11px]">{cell.made}/{cell.total}</span>
-                              </>
-                            ) : (
-                              <span>—</span>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <EfficiencyMatrix sessions={[session]} />
         </div>
+
+        {/* --- NEW MISS CHART UI --- */}
+        {chartData.length > 0 && (
+          <div className="mb-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-xs font-semibold tracking-widest text-section-title italic">
+                MISS ANALYSIS
+              </h2>
+              <div className="rounded-full bg-secondary px-2.5 py-0.5 font-mono text-[9px] font-bold text-primary border border-primary/20">
+                {missedKicks.length} TOTAL
+              </div>
+            </div>
+            <MissAnalysisChart data={chartData} />
+          </div>
+        )}
 
         {/* History Logs */}
         <div className="mb-6">
@@ -406,8 +373,7 @@ const PostSession = () => {
                   <button key={num} onClick={() => setAppendDraft((d) => ({ ...d, feel: num }))}
                     className={`flex-1 rounded-md py-1.5 font-display text-[11px] font-bold transition-colors ${
                       (appendDraft.feel || 0) >= num ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                    }`}
-                  >{num}</button>
+                    }`}>{num}</button>
                 ))}
               </div>
               {/* Notes */}

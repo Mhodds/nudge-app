@@ -16,7 +16,6 @@ const Analytics = () => {
   const { data: sessions = [], isLoading } = useSessions();
 
   const calculateStats = (type: "match" | "training") => {
-    // 1. SMART FILTER: Match vs everything else
     const allHistory = sessions
       .filter(s => {
         const t = String(s.type || '').toLowerCase().trim();
@@ -25,7 +24,6 @@ const Analytics = () => {
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    // 2. Apply Timeframe Filter
     let filteredSessions = [...allHistory].reverse(); 
     if (timeframe === "30d") {
       const thirtyDaysAgo = new Date();
@@ -37,7 +35,6 @@ const Analytics = () => {
 
     const activeKicks = filteredSessions.flatMap(s => s.kicks || []);
     
-    // 3. KICK FILTER: Strict for Matches, Inclusive for Training
     const placeKicks = activeKicks.filter(k => {
       if (type === "match") return k.kickType === 'conversion' || k.kickType === 'penalty';
       return k.kickType !== 'try';
@@ -121,15 +118,15 @@ const Analytics = () => {
   return (
     <div className="min-h-screen bg-background pb-32 text-foreground">
       <div className="mx-auto max-w-md px-4">
-        {/* UPDATED BRANDED HEADER */}
+        {/* BRANDED HEADER */}
         <div className="flex flex-col items-center pt-8 pb-4 relative text-center">
           <button onClick={() => navigate("/")} className="absolute left-0 top-8 text-muted-foreground">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="font-display text-2xl font-black italic tracking-tighter uppercase leading-none">
+          <h1 className="font-display text-3xl font-black italic tracking-tighter uppercase leading-none">
             Nudge <span className="text-primary">Check</span>
           </h1>
-          <p className="font-display text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mt-1">
+          <p className="font-display text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mt-1">
             Kicking Performance Lab
           </p>
         </div>
@@ -138,12 +135,12 @@ const Analytics = () => {
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md py-4 border-b border-card-border/50 flex flex-col gap-3 mb-6">
           <div className="flex rounded-lg bg-secondary/30 p-1">
             {[{ id: "all", label: "Combined" }, { id: "match", label: "Matches" }, { id: "skill", label: "Training" }].map((t) => (
-              <button key={t.id} onClick={() => setCategory(t.id as any)} className={`flex-1 rounded-md py-2 font-display text-[10px] font-black uppercase tracking-wider transition-all ${category === t.id ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground"}`}>{t.label}</button>
+              <button key={t.id} onClick={() => setCategory(t.id as any)} className={`flex-1 rounded-md py-2 font-display text-[11px] font-black uppercase tracking-wider transition-all ${category === t.id ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground"}`}>{t.label}</button>
             ))}
           </div>
           <div className="flex rounded-lg bg-secondary/30 p-1">
             {[{ id: "all", label: "Season" }, { id: "30d", label: "30 Days" }, { id: "3g", label: "3 Games" }].map((t) => (
-              <button key={t.id} onClick={() => setTimeframe(t.id as any)} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${timeframe === t.id ? "bg-foreground text-background" : "text-muted-foreground"}`}>{t.label}</button>
+              <button key={t.id} onClick={() => setTimeframe(t.id as any)} className={`flex-1 rounded-md py-1.5 font-display text-[10px] font-black uppercase tracking-widest transition-all ${timeframe === t.id ? "bg-foreground text-background" : "text-muted-foreground"}`}>{t.label}</button>
             ))}
           </div>
         </div>
@@ -154,14 +151,14 @@ const Analytics = () => {
           <div className="flex flex-col gap-8">
             {/* KPI TABLE */}
             <div>
-              <h2 className="mb-3 font-display text-[10px] font-black italic tracking-[0.2em] text-muted-foreground uppercase">Key Performance Indicators</h2>
+              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Key Performance Indicators</h2>
               <div className="overflow-hidden rounded-2xl border border-card-border bg-card/30">
                 <table className="w-full text-left border-separate border-spacing-0">
                   <thead>
                     <tr className="bg-secondary/10">
-                      <th className="p-4 font-display text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-card-border">KPI</th>
-                      <th className={`p-4 font-display text-[10px] font-black uppercase tracking-widest border-b border-card-border ${category !== 'skill' ? 'text-primary' : 'text-muted-foreground/30'}`}>Match</th>
-                      <th className={`p-4 font-display text-[10px] font-black uppercase tracking-widest border-b border-card-border ${category !== 'match' ? 'text-pink-400' : 'text-muted-foreground/30'}`}>Training</th>
+                      <th className="p-4 font-display text-xs font-black uppercase tracking-widest text-muted-foreground border-b border-card-border">KPI</th>
+                      <th className={`p-4 font-display text-xs font-black uppercase tracking-widest border-b border-card-border ${category !== 'skill' ? 'text-primary' : 'text-muted-foreground/30'}`}>Match</th>
+                      <th className={`p-4 font-display text-xs font-black uppercase tracking-widest border-b border-card-border ${category !== 'match' ? 'text-pink-400' : 'text-muted-foreground/30'}`}>Training</th>
                     </tr>
                   </thead>
                   <tbody className="text-xs">
@@ -175,7 +172,7 @@ const Analytics = () => {
                       { label: "Kick Feel", m: matchStats.feel, t: trainStats.feel },
                     ].map((row, i) => (
                       <tr key={i}>
-                        <td className="p-4 text-muted-foreground text-[8px] tracking-[0.2em] font-display font-black uppercase border-b border-card-border/30">{row.label}</td>
+                        <td className="p-4 text-muted-foreground text-[10px] tracking-[0.2em] font-display font-black uppercase border-b border-card-border/30">{row.label}</td>
                         <td className={`p-4 border-b border-card-border/30 font-mono font-bold text-sm ${category !== 'skill' ? 'text-primary' : 'text-foreground/10'}`}>
                           <div className="flex items-center gap-1.5">{row.m} {row.fire && Number(row.m) > 0 && <Flame className="h-3 w-3 fill-primary text-primary animate-pulse" />}</div>
                         </td>
@@ -191,15 +188,15 @@ const Analytics = () => {
 
             {/* EFFICIENCY MATRIX */}
             <div>
-              <h2 className="mb-3 font-display text-[10px] font-black italic tracking-[0.2em] text-muted-foreground uppercase">Efficiency Matrix</h2>
+              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Efficiency Matrix</h2>
               <EfficiencyMatrix sessions={displaySessions} /> 
             </div>
 
-            {/* MISS ANALYSIS */}
+            {/* MISS ANALYSIS WITH PILL */}
             {chartData.length > 0 && (
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="font-display text-[10px] font-black italic tracking-[0.2em] text-muted-foreground uppercase">Miss Analysis</h2>
+                  <h2 className="font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Miss Analysis</h2>
                   <div className="rounded-full bg-secondary px-2.5 py-0.5 font-mono text-[9px] font-bold text-primary border border-primary/20">
                     {missedKicks.length} TOTAL
                   </div>
@@ -210,7 +207,7 @@ const Analytics = () => {
 
             {/* VELOCITY GRAPH */}
             <div>
-              <h2 className="mb-3 font-display text-[10px] font-black italic tracking-[0.2em] text-muted-foreground uppercase">Velocity Graph</h2>
+              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Velocity Graph</h2>
               <VelocityGraph sessions={displaySessions} />
             </div>
           </div>

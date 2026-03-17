@@ -66,17 +66,16 @@ const Index = () => {
         {/* BRANDED HEADER (TOP LEFT) */}
         <div className="flex items-start justify-between px-4 pt-8 pb-4">
           <div className="flex flex-col items-start text-left">
-            <h1 className="font-display text-2xl font-black italic tracking-tighter uppercase leading-none">
+            <h1 className="font-display text-3xl font-black italic tracking-tighter uppercase leading-none">
               Nudge <span className="text-primary">Check</span>
             </h1>
-            <p className="font-display text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mt-1.5">
+            <p className="font-display text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mt-1.5">
               Kicking Performance Lab
             </p>
           </div>
           
           <div className="flex items-center gap-2">
             <RefreshButton onSync={syncPending} />
-            {/* HERE IS YOUR NEW SUN/MOON BUTTON */}
             <ThemeToggle />
             <button
               onClick={signOut}
