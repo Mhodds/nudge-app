@@ -8,14 +8,15 @@ interface InterfaceModeContextType {
 }
 
 const InterfaceModeContext = createContext<InterfaceModeContextType>({
-  mode: "basic",
+  mode: "detailed", // Changed from "basic"
   setMode: () => {},
 });
 
 export const useInterfaceMode = () => useContext(InterfaceModeContext);
 
 export const InterfaceModeProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useState<InterfaceModeType>("basic");
+  const [mode, setMode] = useState<InterfaceModeType>("detailed"); // Changed from "basic"
+  
   return (
     <InterfaceModeContext.Provider value={{ mode, setMode }}>
       {children}
