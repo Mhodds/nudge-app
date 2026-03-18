@@ -105,20 +105,30 @@ const Analytics = () => {
     displaySessions = displaySessions.slice(0, 3);
   }
 
+  // --- UPDATED MISS CHART LOGIC (SYNCED) ---
+  // --- SMART MISS CHART LOGIC ---
   const allKicksInView = displaySessions.flatMap(s => s.kicks || []);
   const missedKicks = allKicksInView.filter(k => k.result === 'miss');
+  const totalMisses = missedKicks.length;
+  const shortMisses = missedKicks.filter(k => k.technicalMiss?.toLowerCase().includes('short')).length;
+
+  const pureCount = missedKicks.filter(k => k.technicalMiss?.toLowerCase().includes('pure')).length;
+  const hookCount = missedKicks.filter(k => k.technicalMiss?.toLowerCase().includes('hook')).length;
+  const pushCount = missedKicks.filter(k => k.technicalMiss?.toLowerCase().includes('push')).length;
+  
+  const unspecifiedCount = Math.max(0, totalMisses - (pureCount + hookCount + pushCount));
   
   const chartData = [
-    { name: 'Pure', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'pure').length },
-    { name: 'Hook', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'hook').length },
-    { name: 'Push', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'push').length },
-    { name: 'Short', value: missedKicks.filter(k => k.technicalMiss?.toLowerCase() === 'short').length },
+    { name: 'Pure', value: pureCount },
+    { name: 'Hook', value: hookCount },
+    { name: 'Push', value: pushCount },
+    { name: 'Unspecified', value: unspecifiedCount },
   ].filter(item => item.value > 0);
+  // -----------------------------------------
 
   return (
     <div className="min-h-screen bg-background pb-32 text-foreground">
       <div className="mx-auto max-w-md px-4">
-        {/* BRANDED HEADER */}
         <div className="flex flex-col items-center pt-8 pb-4 relative text-center">
           <button onClick={() => navigate("/")} className="absolute left-0 top-8 text-muted-foreground">
             <ArrowLeft className="h-5 w-5" />
@@ -131,7 +141,6 @@ const Analytics = () => {
           </p>
         </div>
 
-        {/* FILTERS */}
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md py-4 border-b border-card-border/50 flex flex-col gap-3 mb-6">
           <div className="flex rounded-lg bg-secondary/30 p-1">
             {[{ id: "all", label: "Combined" }, { id: "match", label: "Matches" }, { id: "skill", label: "Training" }].map((t) => (
@@ -149,7 +158,6 @@ const Analytics = () => {
           <Skeleton className="h-96 w-full rounded-2xl" />
         ) : (
           <div className="flex flex-col gap-8">
-            {/* KPI TABLE */}
             <div>
               <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Key Performance Indicators</h2>
               <div className="overflow-hidden rounded-2xl border border-card-border bg-card/30">
@@ -186,26 +194,24 @@ const Analytics = () => {
               </div>
             </div>
 
-            {/* EFFICIENCY MATRIX */}
-            <div>
-              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Efficiency Matrix</h2>
-              <EfficiencyMatrix sessions={displaySessions} /> 
-            </div>
-
-            {/* MISS ANALYSIS WITH PILL */}
+            {/* MISS ANALYSIS WITH SYNCED LOGIC */}
             {chartData.length > 0 && (
               <div>
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Miss Analysis</h2>
                   <div className="rounded-full bg-secondary px-2.5 py-0.5 font-mono text-[9px] font-bold text-primary border border-primary/20">
-                    {missedKicks.length} TOTAL
+                    {totalMisses} TOTAL
                   </div>
                 </div>
-                <MissAnalysisChart data={chartData} />
+                <MissAnalysisChart data={chartData} totalMisses={totalMisses} shortMisses={shortMisses} />
               </div>
             )}
 
-            {/* VELOCITY GRAPH */}
+            <div>
+              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Efficiency Matrix</h2>
+              <EfficiencyMatrix sessions={displaySessions} /> 
+            </div>
+
             <div>
               <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Velocity Graph</h2>
               <VelocityGraph sessions={displaySessions} />

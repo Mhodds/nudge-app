@@ -49,14 +49,14 @@ export async function getSessions(): Promise<Session[]> {
     totalCount: s.total_count,
     accuracy: s.accuracy,
     avgFeel: Number(s.avg_feel),
+    tries: s.tries || 0,
+    pointsTotal: s.points_total || 0,
   }));
 }
 
-const DEFAULT_PAGE_SIZE = 15;
-
 export async function getSessionsPaginated(
   page: number,
-  pageSize = DEFAULT_PAGE_SIZE
+  pageSize = 15
 ): Promise<Session[]> {
   const from = page * pageSize;
   const to = from + pageSize - 1;
@@ -104,6 +104,8 @@ export async function getSessionsPaginated(
     totalCount: s.total_count,
     accuracy: s.accuracy,
     avgFeel: Number(s.avg_feel),
+    tries: s.tries || 0,
+    pointsTotal: s.points_total || 0,
   }));
 }
 
@@ -143,12 +145,22 @@ export async function getSession(id: string): Promise<Session | undefined> {
     totalCount: s.total_count,
     accuracy: s.accuracy,
     avgFeel: Number(s.avg_feel),
+    tries: s.tries || 0,
+    pointsTotal: s.points_total || 0,
   };
 }
 
 export async function saveSession(session: Session): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+
+  const triesPoints = (session.tries || 0) * 5;
+  const kickPoints = session.kicks.reduce((acc, k) => {
+    if (k.result !== 'made') return acc;
+    if (k.kickType === 'conversion') return acc + 2;
+    if (k.kickType === 'penalty' || k.kickType === 'drop_goal') return acc + 3;
+    return acc;
+  }, 0);
 
   const { error: sessionError } = await supabase.from("sessions").insert({
     id: session.id,
@@ -160,6 +172,8 @@ export async function saveSession(session: Session): Promise<void> {
     total_count: session.totalCount,
     accuracy: session.accuracy,
     avg_feel: session.avgFeel,
+    tries: session.tries || 0,
+    points_total: triesPoints + kickPoints,
   });
 
   if (sessionError) throw sessionError;
@@ -200,7 +214,6 @@ export async function updateSession(updated: Session): Promise<void> {
 
   if (sessionError) throw sessionError;
 
-  // Upsert kicks first (safe — never deletes before replacements exist)
   const kickIds: string[] = [];
   if (updated.kicks.length > 0) {
     const kickRows = updated.kicks.map((k) => ({
@@ -225,7 +238,6 @@ export async function updateSession(updated: Session): Promise<void> {
     kickIds.push(...updated.kicks.map((k) => k.id));
   }
 
-  // Delete orphan kicks that are no longer in the session
   if (kickIds.length > 0) {
     await supabase
       .from("kicks")
@@ -241,28 +253,21 @@ export async function deleteSession(id: string): Promise<void> {
   await supabase.from("sessions").delete().eq("id", id);
 }
 
-export async function getPerfectShiftId(): Promise<string | null> {
-  const { data } = await supabase
-    .from("sessions")
-    .select("id, total_count")
-    .eq("accuracy", 100)
-    .gt("total_count", 0)
-    .order("total_count", { ascending: false })
-    .limit(1);
-
-  return data?.[0]?.id || null;
-}
-
-// buildSession stays pure — no DB
+// ── BUILD SESSION: THE STATS ENGINE ──
 export function buildSession(
   type: "match" | "training",
   kicks: Kick[],
   teamName?: string
 ): Session {
+  // FIXED: Wider filter to include Training kicks while still excluding Tries/DGs from accuracy
   const placeKicks = kicks.filter((k) => k.kickType !== "try" && k.kickType !== "drop_goal");
+  
   const madeCount = placeKicks.filter((k) => k.result === "made").length;
   const totalCount = placeKicks.length;
   const accuracy = totalCount > 0 ? Math.round((madeCount / totalCount) * 100) : 0;
+  
+  const triesCount = kicks.filter(k => k.kickType === 'try').length;
+  
   const feelsWithValue = placeKicks.filter((k) => k.feel && k.feel > 0);
   const avgFeel =
     feelsWithValue.length > 0
@@ -279,26 +284,18 @@ export function buildSession(
     totalCount,
     accuracy,
     avgFeel,
+    tries: triesCount,
   };
 }
-
-// ── localStorage migration ──
 
 export async function migrateLocalStorageToCloud(): Promise<number> {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return 0;
-
   try {
     const localSessions: Session[] = JSON.parse(raw);
     if (!Array.isArray(localSessions) || localSessions.length === 0) return 0;
-
-    for (const session of localSessions) {
-      await saveSession(session);
-    }
-
+    for (const session of localSessions) { await saveSession(session); }
     localStorage.removeItem(STORAGE_KEY);
     return localSessions.length;
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
 }
