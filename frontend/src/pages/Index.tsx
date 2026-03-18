@@ -105,18 +105,19 @@ const Index = () => {
           
           <StatsCards />
 
-          {/* COMPACT TRAINING GOAL TRACKER (Bigger Text Version) */}
-          <div className="rounded-xl border border-card-border bg-card/50 p-5 shadow-sm relative overflow-hidden">
+          {/* COMPACT NUDGE CHALLENGE TRACKER (Readability Tuned) */}
+          <div className="mx-1.5 rounded-xl border border-card-border bg-card/50 p-5 shadow-sm relative overflow-hidden">
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <h3 className="font-display text-[11px] font-black italic tracking-[0.15em] text-primary uppercase">
-                    TRAINING GOAL: 500 REPS
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Target className="h-4 w-4 text-primary shrink-0" />
+                  {/* CHANGED tracking-tighter TO tracking-tight FOR BETTER READABILITY */}
+                  <h3 className="font-display text-xs font-black italic tracking-tight text-primary uppercase leading-none whitespace-nowrap">
+                    Nudge Challenge: 500 training reps
                   </h3>
                 </div>
-                {/* BIGGER REP COUNT */}
-                <p className="font-display text-lg font-black text-foreground">
+                {/* Rep Count */}
+                <p className="font-display text-lg font-black text-foreground shrink-0">
                   {trainingKicks} <span className="text-xs font-bold text-muted-foreground italic">/ {GOAL}</span>
                 </p>
               </div>
@@ -130,7 +131,6 @@ const Index = () => {
               </div>
 
               <div className="mt-3 flex items-center justify-between">
-                {/* BIGGER FOOTER TEXT */}
                 <p className="font-body text-[10px] font-bold text-muted-foreground tracking-widest uppercase italic">
                   {remaining > 0 ? `${remaining} REPS TO TARGET` : "TARGET ACHIEVED"}
                 </p>

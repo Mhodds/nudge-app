@@ -7,7 +7,7 @@ const BottomNav = () => {
   const isAnalytics = location.pathname === "/analytics";
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t border-card-border bg-bottom-nav">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-card-border bg-bottom-nav/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-md">
         <button
           onClick={() => navigate("/")}
