@@ -105,35 +105,37 @@ const Index = () => {
           
           <StatsCards />
 
-          {/* COMPACT TRAINING GOAL TRACKER */}
-          <div className="rounded-xl border border-card-border bg-card/50 p-4 shadow-sm relative overflow-hidden">
+          {/* COMPACT TRAINING GOAL TRACKER (Bigger Text Version) */}
+          <div className="rounded-xl border border-card-border bg-card/50 p-5 shadow-sm relative overflow-hidden">
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <Target className="h-3 w-3 text-primary" />
-                  <h3 className="font-display text-[9px] font-black italic tracking-[0.2em] text-primary uppercase">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <h3 className="font-display text-[11px] font-black italic tracking-[0.15em] text-primary uppercase">
                     TRAINING GOAL: 500 REPS
                   </h3>
                 </div>
-                <p className="font-mono text-[10px] font-bold text-foreground">
-                  {trainingKicks} <span className="text-muted-foreground italic">/ {GOAL}</span>
+                {/* BIGGER REP COUNT */}
+                <p className="font-display text-lg font-black text-foreground">
+                  {trainingKicks} <span className="text-xs font-bold text-muted-foreground italic">/ {GOAL}</span>
                 </p>
               </div>
 
               {/* SLIM PROGRESS BAR */}
-              <div className="relative h-1.5 w-full rounded-full bg-secondary border border-card-border">
+              <div className="relative h-2 w-full rounded-full bg-secondary border border-card-border">
                 <div 
-                  className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(var(--primary),0.3)]"
+                  className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--primary),0.4)]"
                   style={{ width: `${percent}%` }}
                 />
               </div>
 
-              <div className="mt-2.5 flex items-center justify-between">
-                <p className="font-body text-[8px] font-bold text-muted-foreground tracking-widest uppercase italic">
+              <div className="mt-3 flex items-center justify-between">
+                {/* BIGGER FOOTER TEXT */}
+                <p className="font-body text-[10px] font-bold text-muted-foreground tracking-widest uppercase italic">
                   {remaining > 0 ? `${remaining} REPS TO TARGET` : "TARGET ACHIEVED"}
                 </p>
-                <p className="font-display text-[9px] font-black text-primary italic">
-                  {percent}% COMPLETE
+                <p className="font-display text-xs font-black text-primary italic">
+                  {percent}%
                 </p>
               </div>
             </div>
