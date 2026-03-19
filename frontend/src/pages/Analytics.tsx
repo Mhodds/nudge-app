@@ -35,17 +35,30 @@ const Analytics = () => {
 
     const activeKicks = filteredSessions.flatMap(s => s.kicks || []);
     
+    // Accuracy only counts Penalties and Conversions (per your request)
     const placeKicks = activeKicks.filter(k => {
       if (type === "match") return k.kickType === 'conversion' || k.kickType === 'penalty';
-      return k.kickType !== 'try';
+      return k.kickType !== 'try' && k.kickType !== 'drop_goal';
     });
 
     const madeKicks = placeKicks.filter(k => k.result === "made").length;
     const acc = placeKicks.length > 0 ? Math.round((madeKicks / placeKicks.length) * 100) : 0;
     
-    const tries = filteredSessions.reduce((acc, s) => acc + (s.tries || 0), 0);
-    const convos = activeKicks.filter(k => k.kickType === 'conversion' && k.result === 'made').length;
-    const pens = activeKicks.filter(k => k.kickType === 'penalty' && k.result === 'made').length;
+    // Points Calculation (The Fix)
+    const totalPoints = activeKicks.reduce((acc, k) => {
+      if (k.kickType === 'try') return acc + 5;
+      if (k.result !== 'made') return acc;
+      if (k.kickType === 'penalty' || k.kickType === 'drop_goal') return acc + 3;
+      if (k.kickType === 'conversion') return acc + 2;
+      return acc;
+    }, 0);
+
+    const bootValue = activeKicks.reduce((acc, k) => {
+      if (k.result !== 'made') return acc;
+      if (k.kickType === 'penalty' || k.kickType === 'drop_goal') return acc + 3;
+      if (k.kickType === 'conversion') return acc + 2;
+      return acc;
+    }, 0);
 
     const feels = filteredSessions
       .map(s => s.feel ?? s.avgFeel ?? s.rpe)
@@ -60,7 +73,7 @@ const Analytics = () => {
     let current = 0;
     const allTypeKicks = allHistory.flatMap(s => s.kicks || []).filter(k => {
        if (type === "match") return k.kickType === 'conversion' || k.kickType === 'penalty';
-       return k.kickType !== 'try';
+       return k.kickType !== 'try' && k.kickType !== 'drop_goal';
     });
     
     allTypeKicks.forEach(k => {
@@ -77,8 +90,8 @@ const Analytics = () => {
     return { 
       acc: `${acc}%`, 
       strikeRate: `${madeKicks}/${placeKicks.length}`,
-      ptsTotal: type === 'training' ? '—' : (tries * 5) + (convos * 2) + (pens * 3),
-      bootValue: type === 'training' ? '—' : (convos * 2) + (pens * 3),
+      ptsTotal: type === 'training' ? '—' : totalPoints, 
+      bootValue: type === 'training' ? '—' : bootValue,
       feel: `${avgFeel}/5`,
       liveStreak,
       bestStreak
@@ -105,8 +118,6 @@ const Analytics = () => {
     displaySessions = displaySessions.slice(0, 3);
   }
 
-  // --- UPDATED MISS CHART LOGIC (SYNCED) ---
-  // --- SMART MISS CHART LOGIC ---
   const allKicksInView = displaySessions.flatMap(s => s.kicks || []);
   const missedKicks = allKicksInView.filter(k => k.result === 'miss');
   const totalMisses = missedKicks.length;
@@ -124,7 +135,6 @@ const Analytics = () => {
     { name: 'Push', value: pushCount },
     { name: 'Unspecified', value: unspecifiedCount },
   ].filter(item => item.value > 0);
-  // -----------------------------------------
 
   return (
     <div className="min-h-screen bg-background pb-32 text-foreground">
@@ -194,7 +204,6 @@ const Analytics = () => {
               </div>
             </div>
 
-            {/* MISS ANALYSIS WITH SYNCED LOGIC */}
             {chartData.length > 0 && (
               <div>
                 <div className="mb-3 flex items-center justify-between">

@@ -1,5 +1,4 @@
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   ResponsiveContainer,
   LineChart,
@@ -11,7 +10,7 @@ import {
   Label,
 } from "recharts";
 
-// --- UPDATED FORM CHIP: Now calculates based on the ACTIVE filter ---
+// --- SYNCED FORM CHIP: Matches Dashboard Logic (+25% vs +50% fix) ---
 const FormChip = ({ sessions = [] }: { sessions: any[] }) => {
   if (sessions.length < 2) return null;
 
@@ -23,13 +22,22 @@ const FormChip = ({ sessions = [] }: { sessions: any[] }) => {
   const getAcc = (s: any) => {
     const pk = s.kicks.filter((k: any) => k.kickType !== "try" && k.kickType !== "drop_goal");
     return pk.length > 0 
-      ? Math.round((pk.filter((k: any) => k.result === "made").length / pk.length) * 100) 
+      ? (pk.filter((k: any) => k.result === "made").length / pk.length) * 100 
       : 0;
   };
 
-  const currentAcc = getAcc(sorted[0]);
-  const previousAcc = getAcc(sorted[1]);
-  const delta = currentAcc - previousAcc;
+  // Window 1: Last 3 sessions (or whatever is available)
+  const window1 = sorted.slice(0, 3);
+  const avg1 = window1.reduce((sum, s) => sum + getAcc(s), 0) / window1.length;
+
+  // Window 2: The sessions before that
+  const window2 = sorted.slice(3, 6);
+  // If no sessions in Window 2, we compare Window 1 against the very first session as the baseline
+  const avg2 = window2.length > 0 
+    ? window2.reduce((sum, s) => sum + getAcc(s), 0) / window2.length
+    : getAcc(sorted[sorted.length - 1]);
+
+  const delta = Math.round(avg1 - avg2);
 
   const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
   const colorClass = delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-muted-foreground";
@@ -45,7 +53,6 @@ const FormChip = ({ sessions = [] }: { sessions: any[] }) => {
 };
 
 const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
-  // Sort for the graph (oldest to newest)
   const displaySessions = [...sessions].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   if (displaySessions.length < 2) {
@@ -161,7 +168,6 @@ const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
         </LineChart>
       </ResponsiveContainer>
       
-      {/* Passing the sessions to the chip so it knows the context */}
       <FormChip sessions={sessions} />
 
       <div className="mt-4 flex items-center justify-center gap-5 border-t border-card-border/50 pt-3">
