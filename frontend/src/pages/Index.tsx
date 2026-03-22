@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ActionButtons from "@/components/ActionButtons";
 import StatsCards from "@/components/StatsCards";
 import InterfaceMode from "@/components/InterfaceMode";
@@ -6,15 +7,17 @@ import SessionHistory from "@/components/SessionHistory";
 import DataActions from "@/components/DataActions";
 import BottomNav from "@/components/BottomNav";
 import ThemeToggle from "@/components/ThemeToggle";
+import SettingsModal from "@/components/SettingsModal"; // NEW: Mental Pillars
+import OfflineBanner from "@/components/OfflineBanner";
 import { migrateLocalStorageToCloud } from "@/lib/sessions";
 import { useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { useSessions } from "@/hooks/useSessions";
-import { LogOut, RefreshCw, Target } from "lucide-react";
-import OfflineBanner from "@/components/OfflineBanner";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { LogOut, RefreshCw, Target, Settings } from "lucide-react"; // NEW: Settings icon
 
+// --- REFRESH BUTTON COMPONENT ---
 const RefreshButton = ({ onSync }: { onSync: () => void }) => {
   const queryClient = useQueryClient();
   const isFetching = useIsFetching();
@@ -35,8 +38,10 @@ const RefreshButton = ({ onSync }: { onSync: () => void }) => {
   );
 };
 
+// --- MAIN DASHBOARD PAGE ---
 const Index = () => {
   const [migrated, setMigrated] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false); // NEW: Modal Switch
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -51,6 +56,7 @@ const Index = () => {
   const percent = Math.min(Math.round((trainingKicks / GOAL) * 100), 100);
   const remaining = Math.max(0, GOAL - trainingKicks);
 
+  // --- MIGRATION LOGIC ---
   useEffect(() => {
     if (!user || migrated) return;
     const MIGRATION_KEY = "ruck-kick-migrated";
@@ -70,7 +76,7 @@ const Index = () => {
   }, [user, migrated, queryClient, toast]);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-24">
       <div className="mx-auto max-w-md">
         
         {/* BRANDED HEADER */}
@@ -84,12 +90,23 @@ const Index = () => {
             </p>
           </div>
           
+          {/* HEADER ACTIONS */}
           <div className="flex items-center gap-2">
             <RefreshButton onSync={syncPending} />
             <ThemeToggle />
+            
+            {/* NEW: SETTINGS GEAR */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="rounded-xl border border-card-border bg-card p-2.5 text-muted-foreground transition-all hover:text-foreground active:scale-95 shadow-sm"
+              aria-label="Mental Pillars"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+
             <button
               onClick={signOut}
-              className="rounded-xl border border-card-border bg-card p-2.5 text-muted-foreground transition-colors hover:text-foreground"
+              className="rounded-xl border border-card-border bg-card p-2.5 text-muted-foreground transition-colors hover:text-destructive active:scale-95 shadow-sm"
               aria-label="Sign out"
             >
               <LogOut className="h-4 w-4" />
@@ -105,18 +122,16 @@ const Index = () => {
           
           <StatsCards />
 
-          {/* COMPACT NUDGE CHALLENGE TRACKER (Readability Tuned) */}
+          {/* COMPACT NUDGE CHALLENGE TRACKER */}
           <div className="mx-1.5 rounded-xl border border-card-border bg-card/50 p-5 shadow-sm relative overflow-hidden">
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3 gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <Target className="h-4 w-4 text-primary shrink-0" />
-                  {/* CHANGED tracking-tighter TO tracking-tight FOR BETTER READABILITY */}
                   <h3 className="font-display text-xs font-black italic tracking-tight text-primary uppercase leading-none whitespace-nowrap">
                     Nudge Challenge: 500 training reps
                   </h3>
                 </div>
-                {/* Rep Count */}
                 <p className="font-display text-lg font-black text-foreground shrink-0">
                   {trainingKicks} <span className="text-xs font-bold text-muted-foreground italic">/ {GOAL}</span>
                 </p>
@@ -149,6 +164,12 @@ const Index = () => {
       </div>
 
       <BottomNav />
+
+      {/* NEW: SETTINGS MODAL */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </div>
   );
 };
