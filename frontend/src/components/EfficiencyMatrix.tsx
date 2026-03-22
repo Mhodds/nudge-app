@@ -1,5 +1,7 @@
 import { Kick } from "@/types/session";
 import { Grid3X3 } from "lucide-react";
+// 1. ADD THIS IMPORT AT THE TOP
+import AngleInfoModal from "./AngleInfoModal";
 
 const distBands = ["0-22m", "22-30m", "30-40m", "40+m"];
 const angleCols = [
@@ -25,17 +27,12 @@ function getTextColor(pct: number | null): string {
   return "hsl(190, 100%, 95%)";
 }
 
-// Notice the new 'sessions' prop. We are passing the data IN now.
 interface Props {
   sessions?: any[]; 
-  // We keep 'filter' here just in case another page uses this component
-  // without passing 'sessions' explicitly.
   filter?: "aggregated" | "match" | "skill"; 
 }
 
 const EfficiencyMatrix = ({ sessions = [] }: Props) => {
-  
-  // We extract all kicks from the sessions passed into the component
   const allKicks: Kick[] = sessions.flatMap((s) => s.kicks || []);
 
   if (allKicks.length === 0) {
@@ -57,48 +54,58 @@ const EfficiencyMatrix = ({ sessions = [] }: Props) => {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-card-border bg-card">
-      <table className="w-full" style={{ tableLayout: "fixed" }}>
-        <thead>
-          <tr className="border-b border-card-border">
-            <th className="px-2 py-2"></th>
-            {angleCols.map((col, i) => (
-              <th key={`${col.key}-${i}`} className="px-1 py-2 text-center font-display text-[11px] font-bold tracking-wider text-foreground">
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {distBands.map((band) => (
-            <tr key={band} className="border-b border-card-border last:border-b-0">
-              <td className="px-2 py-2 font-display text-[12px] font-bold text-foreground">{band}</td>
-              {angleCols.map((col, i) => {
-                const kicks = buckets[`${band}|${col.key}`];
-                const total = kicks?.length ?? 0;
-                const made = kicks?.filter((k) => k.result === "made").length ?? 0;
-                const pct = total > 0 ? Math.round((made / total) * 100) : null;
-                const bg = getHeatColor(pct);
-                const fg = getTextColor(pct);
-                return (
-                  <td key={`${col.key}-${i}`} className="px-0.5 py-1 text-center">
-                    <div className="mx-auto flex w-full flex-col items-center justify-center rounded-md py-1.5 transition-colors" style={{ backgroundColor: bg }}>
-                      {pct !== null ? (
-                        <>
-                          <span className="font-display text-[11px] font-bold leading-tight" style={{ color: fg }}>{pct}%</span>
-                          <span className="font-mono text-[11px] leading-tight" style={{ color: fg }}>{made}/{total}</span>
-                        </>
-                      ) : (
-                        <span className="font-display text-[11px]" style={{ color: fg }}>—</span>
-                      )}
-                    </div>
-                  </td>
-                );
-              })}
+    // 2. WRAP EVERYTHING IN A DIV TO ADD THE HEADER ABOVE THE TABLE
+    <div className="space-y-3">
+      <div className="flex items-center justify-between px-1">
+        <h2 className="font-display text-[10px] font-black italic tracking-[0.2em] text-muted-foreground uppercase">
+          Efficiency Matrix
+        </h2>
+        <AngleInfoModal />
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-card-border bg-card">
+        <table className="w-full" style={{ tableLayout: "fixed" }}>
+          <thead>
+            <tr className="border-b border-card-border">
+              <th className="px-2 py-2 w-16"></th>
+              {angleCols.map((col, i) => (
+                <th key={`${col.key}-${i}`} className="px-1 py-2 text-center font-display text-[11px] font-bold tracking-wider text-foreground uppercase">
+                  {col.label}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {distBands.map((band) => (
+              <tr key={band} className="border-b border-card-border last:border-b-0">
+                <td className="px-2 py-2 font-display text-[11px] font-bold text-foreground whitespace-nowrap">{band}</td>
+                {angleCols.map((col, i) => {
+                  const kicks = buckets[`${band}|${col.key}`];
+                  const total = kicks?.length ?? 0;
+                  const made = kicks?.filter((k) => k.result === "made").length ?? 0;
+                  const pct = total > 0 ? Math.round((made / total) * 100) : null;
+                  const bg = getHeatColor(pct);
+                  const fg = getTextColor(pct);
+                  return (
+                    <td key={`${col.key}-${i}`} className="px-0.5 py-1 text-center">
+                      <div className="mx-auto flex w-full flex-col items-center justify-center rounded-md py-1.5 transition-colors" style={{ backgroundColor: bg }}>
+                        {pct !== null ? (
+                          <>
+                            <span className="font-display text-[11px] font-bold leading-tight" style={{ color: fg }}>{pct}%</span>
+                            <span className="font-mono text-[10px] leading-tight opacity-80" style={{ color: fg }}>{made}/{total}</span>
+                          </>
+                        ) : (
+                          <span className="font-display text-[11px]" style={{ color: fg }}>—</span>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

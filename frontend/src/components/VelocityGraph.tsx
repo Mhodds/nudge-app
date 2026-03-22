@@ -10,11 +10,13 @@ import {
   Label,
 } from "recharts";
 
+// --- 1. NEW IMPORT ADDED HERE ---
+import VelocityInfoModal from "./VelocityInfoModal";
+
 // --- SYNCED FORM CHIP: Matches Dashboard Logic (+25% vs +50% fix) ---
 const FormChip = ({ sessions = [] }: { sessions: any[] }) => {
   if (sessions.length < 2) return null;
 
-  // Sort by date (newest first)
   const sorted = [...sessions].sort((a, b) => 
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
@@ -26,13 +28,10 @@ const FormChip = ({ sessions = [] }: { sessions: any[] }) => {
       : 0;
   };
 
-  // Window 1: Last 3 sessions (or whatever is available)
   const window1 = sorted.slice(0, 3);
   const avg1 = window1.reduce((sum, s) => sum + getAcc(s), 0) / window1.length;
 
-  // Window 2: The sessions before that
   const window2 = sorted.slice(3, 6);
-  // If no sessions in Window 2, we compare Window 1 against the very first session as the baseline
   const avg2 = window2.length > 0 
     ? window2.reduce((sum, s) => sum + getAcc(s), 0) / window2.length
     : getAcc(sorted[sorted.length - 1]);
@@ -123,61 +122,71 @@ const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
   };
 
   return (
-    <div className="rounded-xl border border-card-border bg-card p-4">
-      <ResponsiveContainer width="100%" height={180}>
-        <LineChart data={data} margin={{ top: 10, right: 60, bottom: 0, left: -20 }}>
-          <defs>
-            <linearGradient id="velocityGlow" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="hsl(190, 100%, 50%)" stopOpacity={0.6} />
-              <stop offset="100%" stopColor="hsl(190, 100%, 50%)" stopOpacity={1} />
-            </linearGradient>
-            <linearGradient id="rollingGlow" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="hsl(45, 100%, 60%)" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="hsl(45, 100%, 60%)" stopOpacity={0.8} />
-            </linearGradient>
-          </defs>
-          <XAxis dataKey="label" hide={true} />
-          <YAxis 
-            domain={[0, 100]} 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fill: "hsl(215, 15%, 55%)", fontSize: 10, fontWeight: 'bold' }} 
-            tickFormatter={(v: number) => `${v}%`} 
-          />
-          
-          <ReferenceLine 
-            y={seasonMean} 
-            stroke="hsl(215, 25%, 40%)" 
-            strokeDasharray="4 4" 
-            strokeOpacity={0.6}
-          >
-            <Label 
-              value={`AVG ${seasonMean}%`} 
-              position="right" 
-              fill="hsl(215, 25%, 45%)" 
-              fontSize={10} 
-              fontWeight="900"
-              className="font-display italic"
-              dx={10}
+    // --- 2. WRAPPER AND HEADER ADDED HERE ---
+    <div className="space-y-3">
+      <div className="flex items-center justify-between px-1">
+        <h2 className="font-display text-[10px] font-black italic tracking-[0.2em] text-muted-foreground uppercase">
+          Velocity Graph
+        </h2>
+        <VelocityInfoModal />
+      </div>
+
+      <div className="rounded-xl border border-card-border bg-card p-4">
+        <ResponsiveContainer width="100%" height={180}>
+          <LineChart data={data} margin={{ top: 10, right: 60, bottom: 0, left: -20 }}>
+            <defs>
+              <linearGradient id="velocityGlow" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="hsl(190, 100%, 50%)" stopOpacity={0.6} />
+                <stop offset="100%" stopColor="hsl(190, 100%, 50%)" stopOpacity={1} />
+              </linearGradient>
+              <linearGradient id="rollingGlow" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="hsl(45, 100%, 60%)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="hsl(45, 100%, 60%)" stopOpacity={0.8} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="label" hide={true} />
+            <YAxis 
+              domain={[0, 100]} 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: "hsl(215, 15%, 55%)", fontSize: 10, fontWeight: 'bold' }} 
+              tickFormatter={(v: number) => `${v}%`} 
             />
-          </ReferenceLine>
+            
+            <ReferenceLine 
+              y={seasonMean} 
+              stroke="hsl(215, 25%, 40%)" 
+              strokeDasharray="4 4" 
+              strokeOpacity={0.6}
+            >
+              <Label 
+                value={`AVG ${seasonMean}%`} 
+                position="right" 
+                fill="hsl(215, 25%, 45%)" 
+                fontSize={10} 
+                fontWeight="900"
+                className="font-display italic"
+                dx={10}
+              />
+            </ReferenceLine>
 
-          <Tooltip content={<CustomTooltip />} cursor={false} />
-          <Line type="monotone" dataKey="rollingAvg" stroke="url(#rollingGlow)" strokeWidth={1.5} strokeDasharray="6 3" dot={false} activeDot={false} isAnimationActive={true} />
-          <Line type="monotone" dataKey="accuracy" stroke="url(#velocityGlow)" strokeWidth={2.5} dot={<CustomDot />} activeDot={{ r: 5, fill: "hsl(190, 100%, 50%)" }} isAnimationActive={true} />
-        </LineChart>
-      </ResponsiveContainer>
-      
-      <FormChip sessions={sessions} />
+            <Tooltip content={<CustomTooltip />} cursor={false} />
+            <Line type="monotone" dataKey="rollingAvg" stroke="url(#rollingGlow)" strokeWidth={1.5} strokeDasharray="6 3" dot={false} activeDot={false} isAnimationActive={true} />
+            <Line type="monotone" dataKey="accuracy" stroke="url(#velocityGlow)" strokeWidth={2.5} dot={<CustomDot />} activeDot={{ r: 5, fill: "hsl(190, 100%, 50%)" }} isAnimationActive={true} />
+          </LineChart>
+        </ResponsiveContainer>
+        
+        <FormChip sessions={sessions} />
 
-      <div className="mt-4 flex items-center justify-center gap-5 border-t border-card-border/50 pt-3">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-4 rounded-full bg-primary" />
-          <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Accuracy</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-4 rounded-full border-t border-dashed" style={{ borderColor: "hsl(45, 100%, 60%)" }} />
-          <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Rolling 3</span>
+        <div className="mt-4 flex items-center justify-center gap-5 border-t border-card-border/50 pt-3">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-4 rounded-full bg-primary" />
+            <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Accuracy</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-4 rounded-full border-t border-dashed" style={{ borderColor: "hsl(45, 100%, 60%)" }} />
+            <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Rolling 3</span>
+          </div>
         </div>
       </div>
     </div>
