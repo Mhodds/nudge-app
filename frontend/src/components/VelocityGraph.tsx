@@ -14,7 +14,7 @@ import { usePerfectShiftId } from "@/hooks/useSessions";
 const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
   const { data: perfectId } = usePerfectShiftId();
 
-  // FIX: Corrected the sort logic (Oldest to Newest)
+  // FIXED: Corrected the sort logic to Oldest -> Newest (Left -> Right)
   const displaySessions = [...sessions].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   );
@@ -127,9 +127,10 @@ const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
               <stop offset="0%" stopColor="hsl(190, 100%, 50%)" stopOpacity={0.6} />
               <stop offset="100%" stopColor="hsl(190, 100%, 50%)" stopOpacity={1} />
             </linearGradient>
+            {/* UPDATED: Performance Curve gradient is now High-Performance Green */}
             <linearGradient id="rollingGlow" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="hsl(45, 100%, 60%)" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="hsl(45, 100%, 60%)" stopOpacity={0.8} />
+              <stop offset="0%" stopColor="hsl(142, 72%, 50%)" stopOpacity={0.4} />
+              <stop offset="100%" stopColor="hsl(142, 72%, 50%)" stopOpacity={0.8} />
             </linearGradient>
           </defs>
           <XAxis dataKey="label" hide={true} />
@@ -164,14 +165,14 @@ const VelocityGraph = ({ sessions = [] }: { sessions: any[] }) => {
         </LineChart>
       </ResponsiveContainer>
 
-      {/* UPDATED LEGEND WITH GOLDEN BOOT */}
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-card-border/50 pt-3">
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 rounded-full bg-primary" />
           <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Accuracy</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-4 rounded-full border-t border-dashed" style={{ borderColor: "hsl(45, 100%, 60%)" }} />
+          {/* UPDATED: Legend indicator changed to Green */}
+          <span className="inline-block h-0.5 w-4 rounded-full border-t border-dashed" style={{ borderColor: "hsl(142, 72%, 50%)" }} />
           <span className="font-display text-[9px] font-black tracking-widest text-muted-foreground uppercase">Performance Curve</span>
         </div>
         <div className="flex items-center gap-1.5">
