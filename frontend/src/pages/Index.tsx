@@ -128,7 +128,8 @@ const Index = () => {
               <div className="flex items-center justify-between mb-3 gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <Target className="h-4 w-4 text-primary shrink-0" />
-                  <h3 className="font-display text-xs font-black italic tracking-tight text-primary uppercase leading-none whitespace-nowrap">
+                  {/* ONLY CHANGE IS HERE: tracking-tight became tracking-wide */}
+                  <h3 className="font-display text-xs font-black italic tracking-wide text-primary uppercase leading-none whitespace-nowrap">
                     Nudge Challenge: 500 training reps
                   </h3>
                 </div>

@@ -1,4 +1,4 @@
-import { Flame, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Flame, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
 import { useMatchStats, useSessions } from "@/hooks/useSessions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
@@ -15,15 +15,20 @@ const RecentFormCard = ({ s }: { s: ReturnType<typeof useMatchStats> }) => {
       className="relative flex flex-col items-center rounded-xl border border-card-border bg-card px-3 py-4 cursor-pointer select-none"
       onClick={() => setShowTip((p) => !p)}
     >
-      {/* Label - Changed to font-body */}
+      {/* The Info Icon */}
+      <div className="absolute top-2 right-2 opacity-20">
+        <Info className="h-3 w-3 text-muted-foreground" />
+      </div>
+
+      {/* Label - font-body */}
       <span className="font-body text-[12px] font-semibold tracking-widest text-muted-foreground text-center leading-tight">
         RECENT<br />FORM
       </span>
       
-      {/* Big Number - Kept as font-display */}
+      {/* Big Number - font-display */}
       <span className="mt-2 font-display text-3xl font-bold text-stat-value">{s.recentForm}%</span>
       
-      {/* Tiny Badge - Changed to font-body */}
+      {/* Tiny Badge - font-body */}
       {hasDelta ? (
         <span className={`mt-2 inline-flex items-center gap-1 font-body text-xs font-bold ${colorClass}`}>
           <Icon className="h-3 w-3" /> {sign}{s.formDelta}%

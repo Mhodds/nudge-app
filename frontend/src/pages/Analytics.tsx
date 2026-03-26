@@ -5,6 +5,7 @@ import BottomNav from "@/components/BottomNav";
 import VelocityGraph from "@/components/VelocityGraph";
 import EfficiencyMatrix from "@/components/EfficiencyMatrix";
 import MissAnalysisChart from "@/components/MissAnalysisChart";
+import VelocityInfoModal from "@/components/VelocityInfoModal"; // Added Import
 import { useSessions } from "@/hooks/useSessions";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -35,7 +36,6 @@ const Analytics = () => {
 
     const activeKicks = filteredSessions.flatMap(s => s.kicks || []);
     
-    // Accuracy only counts Penalties and Conversions (per your request)
     const placeKicks = activeKicks.filter(k => {
       if (type === "match") return k.kickType === 'conversion' || k.kickType === 'penalty';
       return k.kickType !== 'try' && k.kickType !== 'drop_goal';
@@ -44,7 +44,6 @@ const Analytics = () => {
     const madeKicks = placeKicks.filter(k => k.result === "made").length;
     const acc = placeKicks.length > 0 ? Math.round((madeKicks / placeKicks.length) * 100) : 0;
     
-    // Points Calculation (The Fix)
     const totalPoints = activeKicks.reduce((acc, k) => {
       if (k.kickType === 'try') return acc + 5;
       if (k.result !== 'made') return acc;
@@ -169,7 +168,7 @@ const Analytics = () => {
         ) : (
           <div className="flex flex-col gap-8">
             <div>
-              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Key Performance Indicators</h2>
+              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase px-1">Key Performance Indicators</h2>
               <div className="overflow-hidden rounded-2xl border border-card-border bg-card/30">
                 <table className="w-full text-left border-separate border-spacing-0">
                   <thead>
@@ -206,7 +205,7 @@ const Analytics = () => {
 
             {chartData.length > 0 && (
               <div>
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3 flex items-center justify-between px-1">
                   <h2 className="font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Miss Analysis</h2>
                   <div className="rounded-full bg-secondary px-2.5 py-0.5 font-mono text-[9px] font-bold text-primary border border-primary/20">
                     {totalMisses} TOTAL
@@ -217,12 +216,18 @@ const Analytics = () => {
             )}
 
             <div>
-              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Efficiency Matrix</h2>
-              <EfficiencyMatrix sessions={displaySessions} /> 
+              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase px-1">Efficiency Matrix</h2>
+              <EfficiencyMatrix sessions={displaySessions} />
             </div>
 
             <div>
-              <h2 className="mb-3 font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">Velocity Graph</h2>
+              {/* --- VELOCITY GRAPH HEADER ALIGNMENT --- */}
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h2 className="font-display text-xs font-black italic tracking-[0.2em] text-muted-foreground uppercase">
+                  Velocity Graph
+                </h2>
+                <VelocityInfoModal />
+              </div>
               <VelocityGraph sessions={displaySessions} />
             </div>
           </div>
