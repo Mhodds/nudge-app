@@ -1,11 +1,9 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.ruckkick.app',
-  appName: 'RUCK KICK',
+  appId: 'com.nudgecheck.app', // Updated ID
+  appName: 'Nudge Check',       // Updated Name
   webDir: 'build',
-  // For local builds - the app is bundled within the native app
-  // No server URL means the app runs from local assets
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,

@@ -4,12 +4,8 @@ import { buildSession } from "@/lib/sessions";
 import { useSaveSession } from "@/hooks/useSessions";
 import { Kick } from "@/types/session";
 import SubmitOverlay from "@/components/SubmitOverlay";
-import {
-  CheckCircle, Circle, Trash2, StickyNote,
-  ArrowUpLeft, ArrowUp, ArrowUpRight,
-  ArrowLeft, ArrowRight,
-  ArrowDownLeft, ArrowDown, ArrowDownRight,
-} from "lucide-react";
+import { CheckCircle, Circle, Trash2, StickyNote } from "lucide-react";
+import WindDial from "@/components/WindDial";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -17,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useInterfaceMode } from "@/context/InterfaceModeContext";
 
-// 1. THE BLUEPRINT: Exactly what a fresh form looks like
+// 1. THE BLUEPRINT
 const INITIAL_FORM_STATE = {
   kickType: "" as Kick["kickType"] | "",
   distance: "",
@@ -39,13 +35,11 @@ const MatchDay = () => {
   const saveSessionMutation = useSaveSession();
   const { teamName } = (location.state as { teamName?: string }) || {};
 
-  // 2. CONSOLIDATED STATE: One "Bucket" for all form data
   const [form, setForm] = useState(INITIAL_FORM_STATE);
   const [kicks, setKicks] = useState<Kick[]>([]);
 
   const isDetailed = mode === "detailed";
 
-  // 3. COMPUTED STATS: Accuracy and counts
   const stats = useMemo(() => {
     const placeKicks = kicks.filter((k) => k.kickType === "conversion" || k.kickType === "penalty");
     const madeCount = placeKicks.filter((k) => k.result === "made").length;
@@ -54,9 +48,7 @@ const MatchDay = () => {
     return { madeCount, totalCount, accuracy };
   }, [kicks]);
 
-  // 4. VALIDATION ENGINE
   const canSubmit = useMemo(() => {
-    // Tries and DGs don't need distance/angle validation
     if (form.kickType === "try" || form.kickType === "drop_goal") return true;
     
     const basicFields = form.kickType !== "" && form.distance !== "" && form.angle !== "";
@@ -70,7 +62,6 @@ const MatchDay = () => {
     setForm(prev => ({ ...prev, ...updates }));
   };
 
-  // 5. THE LOGGING ENGINE: Pure and predictable
   const handleLog = useCallback(
     (typeOverride?: Kick["kickType"], result: "made" | "miss" = "made") => {
       const activeType = typeOverride || form.kickType;
@@ -172,30 +163,16 @@ const MatchDay = () => {
             </div>
           </div>
 
+          {/* THE SHARED WIND DIAL COMPONENT IS HERE */}
           {isDetailed && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <h3 className="font-display text-xs font-black tracking-widest text-foreground uppercase italic">WIND</h3>
-                <div className={`grid grid-cols-3 gap-1 transition-all duration-300 ${form.windIntensity === "still" ? "opacity-20 pointer-events-none" : "opacity-100"}`}>
-                  {[
-                    { label: "TAIL-L", icon: ArrowUpLeft, key: "TAIL-L" }, { label: "TAIL", icon: ArrowUp, key: "TAIL" }, { label: "TAIL-R", icon: ArrowUpRight, key: "TAIL-R" },
-                    { label: "LEFT", icon: ArrowLeft, key: "LEFT" }, null, { label: "RIGHT", icon: ArrowRight, key: "RIGHT" },
-                    { label: "HEAD-L", icon: ArrowDownLeft, key: "HEAD-L" }, { label: "HEAD", icon: ArrowDown, key: "HEAD" }, { label: "HEAD-R", icon: ArrowDownRight, key: "HEAD-R" }
-                  ].map((item, idx) => (
-                    item ? (
-                      <button key={item.key} onClick={() => updateForm({ windAngle: item.key })} className={`flex flex-col items-center justify-center rounded-lg py-2 transition-all ${form.windAngle === item.key ? "bg-matchday text-primary-foreground shadow-lg shadow-matchday/20" : "bg-secondary text-muted-foreground/50"}`}>
-                        <item.icon className="h-4 w-4" />
-                        <span className="text-[8px] font-black mt-1 uppercase">{item.label}</span>
-                      </button>
-                    ) : <div key={`spacer-${idx}`} />
-                  ))}
-                </div>
-                <div className="flex rounded-lg bg-secondary p-1">
-                  {["still", "low", "med", "high"].map((level) => (
-                    <button key={level} onClick={() => updateForm({ windIntensity: level, windAngle: level === "still" ? "" : form.windAngle })} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${form.windIntensity === level ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"}`}>{level}</button>
-                  ))}
-                </div>
-              </div>
+              
+              <WindDial 
+                intensity={form.windIntensity} 
+                angle={form.windAngle} 
+                onChange={updateForm} 
+                activeColorClass="bg-matchday text-primary-foreground shadow-lg shadow-matchday/20"
+              />
 
               <div className="flex flex-col gap-4">
                 <div>

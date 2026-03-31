@@ -12,7 +12,6 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -29,8 +28,9 @@ const Auth = () => {
 
     try {
       if (mode === "forgot") {
+        // HARDCODED: Redirecting password reset to the live lab domain
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: `https://nudgechecklab.com/reset-password`,
         });
         if (error) throw error;
         toast({ title: "Email sent", description: "Check your inbox for the password reset link." });
@@ -40,18 +40,14 @@ const Auth = () => {
         if (error) throw error;
         navigate("/", { replace: true });
       } else {
-        // Validate invite code server-side first
-        const { data: fnData, error: fnError } = await supabase.functions.invoke(
-          "validate-invite-code",
-          { body: { code: inviteCode } }
-        );
-        if (fnError || !fnData?.valid) {
-          throw new Error(fnData?.error || "Invalid invite code.");
-        }
+        // GATES OPEN: Invite code validation removed.
+        // HARDCODED: Redirecting signup confirmation to the live lab domain
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { 
+            emailRedirectTo: "https://nudgechecklab.com" 
+          },
         });
         if (error) throw error;
         toast({ title: "Account created", description: "Check your email to confirm your account, then log in." });
@@ -74,17 +70,17 @@ const Auth = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
+        {/* --- NUDGE CHECK BRANDING --- */}
         <div className="mb-8 text-center">
-          <h1 className="font-display text-3xl font-black italic tracking-wider text-foreground">
-            <span className="text-foreground">RUCK </span>
-            <span className="text-primary">KICK</span>
+          <h1 className="font-display text-4xl font-black italic tracking-tighter uppercase text-foreground">
+            Nudge <span className="text-primary">Check</span>
           </h1>
-          <p className="mt-1 font-display text-xs font-semibold tracking-widest text-section-title">
-            PRO ANALYTICS LOG
+          <p className="font-display text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mt-2">
+            Kicking Performance Lab
           </p>
         </div>
 
-        <div className="rounded-2xl border border-card-border bg-card p-6">
+        <div className="rounded-2xl border border-card-border bg-card p-6 shadow-xl">
           <h2 className="mb-6 text-center font-display text-sm font-bold tracking-widest text-foreground">
             {heading}
           </h2>
@@ -130,22 +126,6 @@ const Auth = () => {
               </div>
             )}
 
-            {mode === "signup" && (
-              <div>
-                <label className="mb-1 block font-display text-[11px] font-semibold tracking-wider text-muted-foreground">
-                  INVITE CODE
-                </label>
-                <input
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-card-border bg-secondary px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                  placeholder="Enter invite code"
-                />
-              </div>
-            )}
-
             {mode === "login" && (
               <button
                 type="button"
@@ -159,13 +139,13 @@ const Auth = () => {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 w-full rounded-xl bg-primary py-3 font-display text-sm font-bold tracking-wider text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              className="mt-2 w-full rounded-xl bg-primary py-4 font-display text-sm font-bold tracking-wider text-primary-foreground transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-50"
             >
               {loading ? "PLEASE WAIT…" : buttonLabel}
             </button>
           </form>
 
-          <div className="mt-5 text-center">
+          <div className="mt-6 text-center border-t border-card-border pt-4">
             {mode === "forgot" ? (
               <button
                 onClick={() => setMode("login")}

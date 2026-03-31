@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">RUCK KICK</string>
-    <string name="title_activity_main">RUCK KICK</string>
-    <string name="package_name">com.ruckkick.app</string>
-    <string name="custom_url_scheme">com.ruckkick.app</string>
+    <string name="app_name">NUDGE CHECK</string>
+    <string name="title_activity_main">NUDGE CHECK</string>
+    <string name="package_name">com.nudgecheck.app</string>
+    <string name="custom_url_scheme">com.nudgecheck.app</string>
 </resources>
