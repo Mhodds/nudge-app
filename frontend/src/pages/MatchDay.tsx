@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { buildSession } from "@/lib/sessions";
 import { useSaveSession } from "@/hooks/useSessions";
@@ -17,6 +17,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useInterfaceMode } from "@/context/InterfaceModeContext";
 
+// 1. THE BLUEPRINT: Exactly what a fresh form looks like
+const INITIAL_FORM_STATE = {
+  kickType: "" as Kick["kickType"] | "",
+  distance: "",
+  angle: "",
+  windAngle: "",
+  windIntensity: "still",
+  technicalMiss: "",
+  isShort: false,
+  feel: 0,
+  notes: "",
+};
+
 const MatchDay = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -24,103 +37,66 @@ const MatchDay = () => {
   const location = useLocation();
   const { mode } = useInterfaceMode();
   const saveSessionMutation = useSaveSession();
-  const { teamName, matchDate } = (location.state as { teamName?: string; matchDate?: string }) || {};
+  const { teamName } = (location.state as { teamName?: string }) || {};
 
-  // -- STATES --
-  const [kickType, setKickType] = useState<"conversion" | "penalty" | "">("");
-  const [bandDistance, setBandDistance] = useState("");
-  const [positionAngle, setPositionAngle] = useState("");
-  
-  // UPDATED: Wind defaults to empty for direction
-  const [windAngle, setWindAngle] = useState("");
-  const [windIntensity, setWindIntensity] = useState("still"); 
-  
-  const [technicalMiss, setTechnicalMiss] = useState("");
-  const [isShort, setIsShort] = useState(false);
-  const [feel, setFeel] = useState(0);
-  const [notes, setNotes] = useState("");
+  // 2. CONSOLIDATED STATE: One "Bucket" for all form data
+  const [form, setForm] = useState(INITIAL_FORM_STATE);
   const [kicks, setKicks] = useState<Kick[]>([]);
 
-  const bandOptions = ["0-22m", "22-30m", "30-40m", "40+m"];
-  const angleOptions = [
-    { key: "SL-L", label: "SL" },
-    { key: "5m-L", label: "5M" },
-    { key: "15m-L", label: "15M" },
-    { key: "FR", label: "FR" },
-    { key: "15m-R", label: "15M" },
-    { key: "5m-R", label: "5M" },
-    { key: "SL-R", label: "SL" },
-  ];
-
-  // UPDATED: Middle item is null for the "hole" in the dial
-  const windGrid = [
-    { label: "TAIL-L", icon: ArrowUpLeft, key: "TAIL-L" },
-    { label: "TAIL", icon: ArrowUp, key: "TAIL" },
-    { label: "TAIL-R", icon: ArrowUpRight, key: "TAIL-R" },
-    { label: "LEFT", icon: ArrowLeft, key: "LEFT" },
-    null, 
-    { label: "RIGHT", icon: ArrowRight, key: "RIGHT" },
-    { label: "HEAD-L", icon: ArrowDownLeft, key: "HEAD-L" },
-    { label: "HEAD", icon: ArrowDown, key: "HEAD" },
-    { label: "HEAD-R", icon: ArrowDownRight, key: "HEAD-R" },
-  ];
-
-  const missOptions = ["Hook", "Pure", "Push"];
-  const feelOptions = [1, 2, 3, 4, 5];
   const isDetailed = mode === "detailed";
 
-  const placeKicks = kicks.filter((k) => k.kickType === "conversion" || k.kickType === "penalty");
-  const madeCount = placeKicks.filter((k) => k.result === "made").length;
-  const totalCount = placeKicks.length;
-  const accuracy = totalCount > 0 ? Math.round((madeCount / totalCount) * 100) : 0;
+  // 3. COMPUTED STATS: Accuracy and counts
+  const stats = useMemo(() => {
+    const placeKicks = kicks.filter((k) => k.kickType === "conversion" || k.kickType === "penalty");
+    const madeCount = placeKicks.filter((k) => k.result === "made").length;
+    const totalCount = placeKicks.length;
+    const accuracy = totalCount > 0 ? Math.round((madeCount / totalCount) * 100) : 0;
+    return { madeCount, totalCount, accuracy };
+  }, [kicks]);
 
-  // UPDATED: canSubmit now requires a wind direction if intensity isn't "still"
-  const canSubmit = kickType !== "" && bandDistance !== "" && positionAngle !== "" &&
-    (!isDetailed || (feel > 0 && (windIntensity === "still" || windAngle !== "")));
+  // 4. VALIDATION ENGINE
+  const canSubmit = useMemo(() => {
+    // Tries and DGs don't need distance/angle validation
+    if (form.kickType === "try" || form.kickType === "drop_goal") return true;
+    
+    const basicFields = form.kickType !== "" && form.distance !== "" && form.angle !== "";
+    const detailedFields = !isDetailed || (form.feel > 0 && (form.windIntensity === "still" || form.windAngle !== ""));
+    return basicFields && detailedFields;
+  }, [form, isDetailed]);
 
-  const buildTechnicalMiss = useCallback(() => {
-    if (isShort && technicalMiss) return `${technicalMiss} + Short`;
-    if (isShort) return "Short";
-    return technicalMiss;
-  }, [isShort, technicalMiss]);
+  const resetForm = useCallback(() => setForm(INITIAL_FORM_STATE), []);
 
-  const resetForm = useCallback(() => {
-    setKickType(""); 
-    setBandDistance(""); 
-    setPositionAngle(""); 
-    setWindAngle(""); 
-    setWindIntensity("still");
-    setTechnicalMiss(""); 
-    setIsShort(false); 
-    setFeel(0); 
-    setNotes("");
-  }, []);
+  const updateForm = (updates: Partial<typeof INITIAL_FORM_STATE>) => {
+    setForm(prev => ({ ...prev, ...updates }));
+  };
 
-  // NEW: Unified logging engine
+  // 5. THE LOGGING ENGINE: Pure and predictable
   const handleLog = useCallback(
-    (type: "conversion" | "penalty" | "try" | "drop_goal", result: "made" | "miss" = "made") => {
-      const isPlaceKick = type === "conversion" || type === "penalty";
-      if (isPlaceKick && !canSubmit) return;
+    (typeOverride?: Kick["kickType"], result: "made" | "miss" = "made") => {
+      const activeType = typeOverride || form.kickType;
+      const isPlaceKick = activeType === "conversion" || activeType === "penalty";
 
       const newKick: Kick = {
         id: crypto.randomUUID(),
         seq: kicks.length + 1,
         result,
-        kickType: type,
-        distance: isPlaceKick ? bandDistance : "",
-        angle: isPlaceKick ? positionAngle : "",
-        notes: notes || undefined,
+        kickType: activeType as Kick["kickType"],
+        distance: isPlaceKick ? form.distance : "",
+        angle: isPlaceKick ? form.angle : "",
+        notes: form.notes || undefined,
         ...(isDetailed && isPlaceKick && {
-          wind: windIntensity === "still" ? "STILL" : `${windIntensity}-${windAngle}`,
-          technicalMiss: result === "miss" ? buildTechnicalMiss() : undefined,
-          feel,
+          wind: form.windIntensity === "still" ? "STILL" : `${form.windIntensity}-${form.windAngle}`,
+          technicalMiss: result === "miss" 
+            ? [form.technicalMiss, form.isShort ? "Short" : ""].filter(Boolean).join(" + ") || undefined
+            : undefined,
+          feel: form.feel,
         }),
       };
 
       setKicks((prev) => [...prev, newKick]);
       resetForm();
     },
-    [canSubmit, kicks.length, bandDistance, positionAngle, isDetailed, windIntensity, windAngle, notes, buildTechnicalMiss, resetForm]
+    [form, kicks.length, isDetailed, resetForm]
   );
 
   const deleteKick = useCallback((id: string) => {
@@ -170,7 +146,7 @@ const MatchDay = () => {
             <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">KICK TYPE</h3>
             <div className="flex rounded-lg bg-secondary p-1">
               {["conversion", "penalty"].map((type) => (
-                <button key={type} onClick={() => setKickType(type as any)} className={`flex-1 rounded-md py-2 font-display text-[11px] font-black tracking-wider transition-all ${kickType === type ? "bg-matchday text-primary-foreground" : "text-muted-foreground"}`}>{type.toUpperCase()}</button>
+                <button key={type} onClick={() => updateForm({ kickType: type as any })} className={`flex-1 rounded-md py-2 font-display text-[11px] font-black tracking-wider transition-all ${form.kickType === type ? "bg-matchday text-primary-foreground" : "text-muted-foreground"}`}>{type.toUpperCase()}</button>
               ))}
             </div>
           </div>
@@ -178,8 +154,8 @@ const MatchDay = () => {
           <div>
             <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">BAND DISTANCE</h3>
             <div className="flex rounded-lg bg-secondary p-1">
-              {bandOptions.map((opt) => (
-                <button key={opt} onClick={() => setBandDistance(opt)} className={`flex-1 rounded-md py-2 font-display text-[10px] font-black tracking-widest transition-all ${bandDistance === opt ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt}</button>
+              {["0-22m", "22-30m", "30-40m", "40+m"].map((opt) => (
+                <button key={opt} onClick={() => updateForm({ distance: opt })} className={`flex-1 rounded-md py-2 font-display text-[10px] font-black tracking-widest transition-all ${form.distance === opt ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt}</button>
               ))}
             </div>
           </div>
@@ -187,8 +163,11 @@ const MatchDay = () => {
           <div>
             <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">POSITION ANGLE</h3>
             <div className="flex rounded-lg bg-secondary p-1">
-              {angleOptions.map((opt) => (
-                <button key={opt.key} onClick={() => setPositionAngle(opt.key)} className={`flex-1 rounded-md py-2 font-display text-[10px] font-black tracking-widest transition-all ${positionAngle === opt.key ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt.label}</button>
+              {[
+                { key: "SL-L", label: "SL" }, { key: "5m-L", label: "5M" }, { key: "15m-L", label: "15M" },
+                { key: "FR", label: "FR" }, { key: "15m-R", label: "15M" }, { key: "5m-R", label: "5M" }, { key: "SL-R", label: "SL" }
+              ].map((opt) => (
+                <button key={opt.key} onClick={() => updateForm({ angle: opt.key })} className={`flex-1 rounded-md py-2 font-display text-[10px] font-black tracking-widest transition-all ${form.angle === opt.key ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt.label}</button>
               ))}
             </div>
           </div>
@@ -197,21 +176,23 @@ const MatchDay = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-3">
                 <h3 className="font-display text-xs font-black tracking-widest text-foreground uppercase italic">WIND</h3>
-                <div className={`grid grid-cols-3 gap-1 transition-all duration-300 ${windIntensity === "still" ? "opacity-20 pointer-events-none" : "opacity-100"}`}>
-                  {windGrid.map((item, index) => (
+                <div className={`grid grid-cols-3 gap-1 transition-all duration-300 ${form.windIntensity === "still" ? "opacity-20 pointer-events-none" : "opacity-100"}`}>
+                  {[
+                    { label: "TAIL-L", icon: ArrowUpLeft, key: "TAIL-L" }, { label: "TAIL", icon: ArrowUp, key: "TAIL" }, { label: "TAIL-R", icon: ArrowUpRight, key: "TAIL-R" },
+                    { label: "LEFT", icon: ArrowLeft, key: "LEFT" }, null, { label: "RIGHT", icon: ArrowRight, key: "RIGHT" },
+                    { label: "HEAD-L", icon: ArrowDownLeft, key: "HEAD-L" }, { label: "HEAD", icon: ArrowDown, key: "HEAD" }, { label: "HEAD-R", icon: ArrowDownRight, key: "HEAD-R" }
+                  ].map((item, idx) => (
                     item ? (
-                      <button key={item.key} onClick={() => setWindAngle(item.key)} className={`flex flex-col items-center justify-center rounded-lg py-2 transition-all ${windAngle === item.key ? "bg-matchday text-primary-foreground shadow-lg shadow-matchday/20" : "bg-secondary text-muted-foreground/50"}`}>
+                      <button key={item.key} onClick={() => updateForm({ windAngle: item.key })} className={`flex flex-col items-center justify-center rounded-lg py-2 transition-all ${form.windAngle === item.key ? "bg-matchday text-primary-foreground shadow-lg shadow-matchday/20" : "bg-secondary text-muted-foreground/50"}`}>
                         <item.icon className="h-4 w-4" />
                         <span className="text-[8px] font-black mt-1 uppercase">{item.label}</span>
                       </button>
-                    ) : (
-                      <div key={`spacer-${index}`} />
-                    )
+                    ) : <div key={`spacer-${idx}`} />
                   ))}
                 </div>
                 <div className="flex rounded-lg bg-secondary p-1">
                   {["still", "low", "med", "high"].map((level) => (
-                    <button key={level} onClick={() => { setWindIntensity(level); if (level === "still") setWindAngle(""); }} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${windIntensity === level ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"}`}>{level}</button>
+                    <button key={level} onClick={() => updateForm({ windIntensity: level, windAngle: level === "still" ? "" : form.windAngle })} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${form.windIntensity === level ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"}`}>{level}</button>
                   ))}
                 </div>
               </div>
@@ -221,21 +202,21 @@ const MatchDay = () => {
                   <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">MISS / DEPTH</h3>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex rounded-lg bg-secondary p-1">
-                      {missOptions.map((opt) => (
-                        <button key={opt} onClick={() => setTechnicalMiss(technicalMiss === opt ? "" : opt)} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${technicalMiss === opt ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt.toUpperCase()}</button>
+                      {["Hook", "Pure", "Push"].map((opt) => (
+                        <button key={opt} onClick={() => updateForm({ technicalMiss: form.technicalMiss === opt ? "" : opt })} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${form.technicalMiss === opt ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt.toUpperCase()}</button>
                       ))}
                     </div>
-                    <button onClick={() => setIsShort(!isShort)} className={`rounded-lg py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${isShort ? "bg-training text-white shadow-lg shadow-training/20" : "bg-secondary text-muted-foreground"}`}>SHORT</button>
+                    <button onClick={() => updateForm({ isShort: !form.isShort })} className={`rounded-lg py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${form.isShort ? "bg-training text-white shadow-lg shadow-training/20" : "bg-secondary text-muted-foreground"}`}>SHORT</button>
                   </div>
                 </div>
                 <div>
                   <div className="mb-2 flex items-center justify-between px-1">
                     <h3 className="font-display text-xs font-black tracking-widest text-foreground uppercase italic">FEEL</h3>
-                    <span className="font-mono text-[10px] font-bold text-matchday">{feel}/5</span>
+                    <span className="font-mono text-[10px] font-bold text-matchday">{form.feel}/5</span>
                   </div>
                   <div className="flex gap-1">
-                    {feelOptions.map((num) => (
-                      <button key={num} onClick={() => setFeel(num)} className={`flex-1 rounded-md py-1.5 font-display text-[10px] font-black transition-all ${num <= feel ? "bg-pink-500 text-white" : "bg-secondary text-muted-foreground"}`}>{num}</button>
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <button key={num} onClick={() => updateForm({ feel: num })} className={`flex-1 rounded-md py-1.5 font-display text-[10px] font-black transition-all ${num <= form.feel ? "bg-pink-500 text-white" : "bg-secondary text-muted-foreground"}`}>{num}</button>
                     ))}
                   </div>
                 </div>
@@ -248,7 +229,7 @@ const MatchDay = () => {
         <div className="space-y-6">
           <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card px-4 py-3">
             <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="NOTES..." className="w-full bg-transparent font-display text-[11px] font-bold tracking-wider text-foreground placeholder:text-muted-foreground focus:outline-none" />
+            <input type="text" value={form.notes} onChange={(e) => updateForm({ notes: e.target.value })} placeholder="NOTES..." className="w-full bg-transparent font-display text-[11px] font-bold tracking-wider text-foreground placeholder:text-muted-foreground focus:outline-none" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -257,15 +238,15 @@ const MatchDay = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => handleLog(kickType as any, "made")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-success text-white shadow-xl shadow-success/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
+            <button onClick={() => handleLog(undefined, "made")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-success text-white shadow-xl shadow-success/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
               <CheckCircle className="h-8 w-8" /> MADE
             </button>
-            <button onClick={() => handleLog(kickType as any, "miss")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-training text-white shadow-xl shadow-training/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
+            <button onClick={() => handleLog(undefined, "miss")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-training text-white shadow-xl shadow-training/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
               <Circle className="h-8 w-8" /> MISS
             </button>
           </div>
 
-          {/* SYNCED HISTORY LOG (TIMELINE) */}
+          {/* TIMELINE */}
           <div>
             <h2 className="mb-3 font-display text-[10px] font-black tracking-[0.3em] text-muted-foreground uppercase italic">Live Timeline</h2>
             <div className="flex flex-col gap-2">
@@ -317,11 +298,11 @@ const MatchDay = () => {
         <div className="mx-auto max-w-md flex gap-4 rounded-2xl border border-card-border bg-card p-4 shadow-2xl">
           <div className="flex-1 flex flex-col items-center border-r border-card-border">
             <span className="font-display text-[9px] font-black uppercase tracking-widest text-muted-foreground italic mb-2">Total Kicks</span>
-            <span className="font-display text-3xl font-black italic text-foreground leading-none">{madeCount}/{totalCount}</span>
+            <span className="font-display text-3xl font-black italic text-foreground leading-none">{stats.madeCount}/{stats.totalCount}</span>
           </div>
           <div className="flex-1 flex flex-col items-center">
             <span className="font-display text-[9px] font-black uppercase tracking-widest text-muted-foreground italic mb-2">Accuracy</span>
-            <span className="font-display text-3xl font-black italic text-matchday leading-none">{accuracy}%</span>
+            <span className="font-display text-3xl font-black italic text-matchday leading-none">{stats.accuracy}%</span>
           </div>
         </div>
       </div>
