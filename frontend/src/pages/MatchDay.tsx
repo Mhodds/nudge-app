@@ -5,11 +5,10 @@ import { useSaveSession } from "@/hooks/useSessions";
 import { Kick } from "@/types/session";
 import SubmitOverlay from "@/components/SubmitOverlay";
 import {
-  CheckCircle, Circle, Trash2, Pencil, X, Check,
+  CheckCircle, Circle, Trash2, StickyNote,
   ArrowUpLeft, ArrowUp, ArrowUpRight,
-  ArrowLeft, Minus, ArrowRight,
+  ArrowLeft, ArrowRight,
   ArrowDownLeft, ArrowDown, ArrowDownRight,
-  StickyNote,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -32,8 +31,8 @@ const MatchDay = () => {
   const [bandDistance, setBandDistance] = useState("");
   const [positionAngle, setPositionAngle] = useState("");
   
-  // UPDATED: Friction-free wind defaults
-  const [windAngle, setWindAngle] = useState("CALM");
+  // UPDATED: Wind defaults to empty for direction
+  const [windAngle, setWindAngle] = useState("");
   const [windIntensity, setWindIntensity] = useState("still"); 
   
   const [technicalMiss, setTechnicalMiss] = useState("");
@@ -53,12 +52,13 @@ const MatchDay = () => {
     { key: "SL-R", label: "SL" },
   ];
 
+  // UPDATED: Middle item is null for the "hole" in the dial
   const windGrid = [
     { label: "TAIL-L", icon: ArrowUpLeft, key: "TAIL-L" },
     { label: "TAIL", icon: ArrowUp, key: "TAIL" },
     { label: "TAIL-R", icon: ArrowUpRight, key: "TAIL-R" },
     { label: "LEFT", icon: ArrowLeft, key: "LEFT" },
-    { label: "CALM", icon: Minus, key: "CALM" },
+    null, 
     { label: "RIGHT", icon: ArrowRight, key: "RIGHT" },
     { label: "HEAD-L", icon: ArrowDownLeft, key: "HEAD-L" },
     { label: "HEAD", icon: ArrowDown, key: "HEAD" },
@@ -74,47 +74,53 @@ const MatchDay = () => {
   const totalCount = placeKicks.length;
   const accuracy = totalCount > 0 ? Math.round((madeCount / totalCount) * 100) : 0;
 
-  // UPDATED logic: assumes windAngle is pre-filled as "CALM"
+  // UPDATED: canSubmit now requires a wind direction if intensity isn't "still"
   const canSubmit = kickType !== "" && bandDistance !== "" && positionAngle !== "" &&
-    (!isDetailed || (windAngle !== "" && feel > 0));
+    (!isDetailed || (feel > 0 && (windIntensity === "still" || windAngle !== "")));
 
-  const buildTechnicalMiss = () => {
+  const buildTechnicalMiss = useCallback(() => {
     if (isShort && technicalMiss) return `${technicalMiss} + Short`;
     if (isShort) return "Short";
     return technicalMiss;
-  };
+  }, [isShort, technicalMiss]);
 
-  const logKick = useCallback(
-    (result: "made" | "miss") => {
-      if (!canSubmit) return;
+  const resetForm = useCallback(() => {
+    setKickType(""); 
+    setBandDistance(""); 
+    setPositionAngle(""); 
+    setWindAngle(""); 
+    setWindIntensity("still");
+    setTechnicalMiss(""); 
+    setIsShort(false); 
+    setFeel(0); 
+    setNotes("");
+  }, []);
+
+  // NEW: Unified logging engine
+  const handleLog = useCallback(
+    (type: "conversion" | "penalty" | "try" | "drop_goal", result: "made" | "miss" = "made") => {
+      const isPlaceKick = type === "conversion" || type === "penalty";
+      if (isPlaceKick && !canSubmit) return;
+
       const newKick: Kick = {
         id: crypto.randomUUID(),
         seq: kicks.length + 1,
         result,
-        kickType: kickType as "conversion" | "penalty",
-        distance: bandDistance,
-        angle: positionAngle,
+        kickType: type,
+        distance: isPlaceKick ? bandDistance : "",
+        angle: isPlaceKick ? positionAngle : "",
         notes: notes || undefined,
-        ...(isDetailed && {
+        ...(isDetailed && isPlaceKick && {
           wind: windIntensity === "still" ? "STILL" : `${windIntensity}-${windAngle}`,
           technicalMiss: result === "miss" ? buildTechnicalMiss() : undefined,
           feel,
         }),
       };
+
       setKicks((prev) => [...prev, newKick]);
-      
-      // RESET with friction-free baseline
-      setKickType(""); 
-      setBandDistance(""); 
-      setPositionAngle(""); 
-      setWindAngle("CALM"); 
-      setWindIntensity("still");
-      setTechnicalMiss(""); 
-      setIsShort(false); 
-      setFeel(0); 
-      setNotes("");
+      resetForm();
     },
-    [canSubmit, kicks.length, kickType, bandDistance, positionAngle, isDetailed, windIntensity, windAngle, technicalMiss, isShort, feel, notes]
+    [canSubmit, kicks.length, bandDistance, positionAngle, isDetailed, windIntensity, windAngle, notes, buildTechnicalMiss, resetForm]
   );
 
   const deleteKick = useCallback((id: string) => {
@@ -192,16 +198,20 @@ const MatchDay = () => {
               <div className="space-y-3">
                 <h3 className="font-display text-xs font-black tracking-widest text-foreground uppercase italic">WIND</h3>
                 <div className={`grid grid-cols-3 gap-1 transition-all duration-300 ${windIntensity === "still" ? "opacity-20 pointer-events-none" : "opacity-100"}`}>
-                  {windGrid.map((item) => (
-                    <button key={item.key} onClick={() => setWindAngle(item.key)} className={`flex flex-col items-center justify-center rounded-lg py-2 transition-all ${windAngle === item.key ? "bg-matchday text-primary-foreground shadow-lg shadow-matchday/20" : "bg-secondary text-muted-foreground/50"}`}>
-                      <item.icon className="h-4 w-4" />
-                      <span className="text-[8px] font-black mt-1 uppercase">{item.label}</span>
-                    </button>
+                  {windGrid.map((item, index) => (
+                    item ? (
+                      <button key={item.key} onClick={() => setWindAngle(item.key)} className={`flex flex-col items-center justify-center rounded-lg py-2 transition-all ${windAngle === item.key ? "bg-matchday text-primary-foreground shadow-lg shadow-matchday/20" : "bg-secondary text-muted-foreground/50"}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span className="text-[8px] font-black mt-1 uppercase">{item.label}</span>
+                      </button>
+                    ) : (
+                      <div key={`spacer-${index}`} />
+                    )
                   ))}
                 </div>
                 <div className="flex rounded-lg bg-secondary p-1">
                   {["still", "low", "med", "high"].map((level) => (
-                    <button key={level} onClick={() => { setWindIntensity(level); if (level === "still") setWindAngle("CALM"); }} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${windIntensity === level ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"}`}>{level}</button>
+                    <button key={level} onClick={() => { setWindIntensity(level); if (level === "still") setWindAngle(""); }} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${windIntensity === level ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"}`}>{level}</button>
                   ))}
                 </div>
               </div>
@@ -242,15 +252,15 @@ const MatchDay = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => { setKicks(p => [...p, { id: crypto.randomUUID(), seq: p.length + 1, result: "made", kickType: "try", distance: "", angle: "" }]); }} className="flex items-center justify-center gap-2 rounded-xl border border-matchday/30 bg-matchday/5 py-4 font-display text-xs font-black tracking-[0.2em] text-matchday transition-all active:scale-95 italic">TRY +5</button>
-            <button onClick={() => { setKicks(p => [...p, { id: crypto.randomUUID(), seq: p.length + 1, result: "made", kickType: "drop_goal", distance: "", angle: "" }]); }} className="flex items-center justify-center gap-2 rounded-xl border border-matchday/30 bg-matchday/5 py-4 font-display text-xs font-black tracking-[0.2em] text-matchday transition-all active:scale-95 italic">DROP GOAL</button>
+            <button onClick={() => handleLog("try")} className="flex items-center justify-center gap-2 rounded-xl border border-matchday/30 bg-matchday/5 py-4 font-display text-xs font-black tracking-[0.2em] text-matchday transition-all active:scale-95 italic">TRY</button>
+            <button onClick={() => handleLog("drop_goal")} className="flex items-center justify-center gap-2 rounded-xl border border-matchday/30 bg-matchday/5 py-4 font-display text-xs font-black tracking-[0.2em] text-matchday transition-all active:scale-95 italic">DROP GOAL</button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => logKick("made")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-success text-white shadow-xl shadow-success/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
+            <button onClick={() => handleLog(kickType as any, "made")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-success text-white shadow-xl shadow-success/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
               <CheckCircle className="h-8 w-8" /> MADE
             </button>
-            <button onClick={() => logKick("miss")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-training text-white shadow-xl shadow-training/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
+            <button onClick={() => handleLog(kickType as any, "miss")} disabled={!canSubmit} className={`flex flex-col items-center justify-center gap-2 rounded-2xl py-8 font-display text-xl font-black italic tracking-tighter transition-all active:scale-95 ${canSubmit ? "bg-training text-white shadow-xl shadow-training/20" : "bg-secondary text-muted-foreground/20 cursor-not-allowed opacity-50"}`}>
               <Circle className="h-8 w-8" /> MISS
             </button>
           </div>
@@ -277,11 +287,9 @@ const MatchDay = () => {
 
                     {(kick.wind || (kick.feel && kick.feel > 0) || kick.notes || (kick.result === 'miss' && kick.technicalMiss)) && (
                       <div className="ml-7 mt-2 flex flex-col gap-1.5">
-                        {/* Miss badge */}
                         {kick.result === 'miss' && kick.technicalMiss && (
                           <div className="flex items-center"><span className="rounded bg-training/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-training uppercase border border-training/20">{kick.technicalMiss}</span></div>
                         )}
-                        {/* Wind and Feel row */}
                         {(kick.wind || (kick.feel && kick.feel > 0)) && (
                           <div className="flex items-center gap-3">
                             {kick.wind && <span className="rounded bg-matchday/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-matchday uppercase border border-matchday/20">WIND: {kick.wind}</span>}
@@ -293,7 +301,6 @@ const MatchDay = () => {
                             )}
                           </div>
                         )}
-                        {/* Notes row */}
                         {kick.notes && (<div className="font-body text-[10px] italic text-muted-foreground flex items-center gap-1"><StickyNote className="h-2.5 w-2.5 shrink-0" /><span>{kick.notes}</span></div>)}
                       </div>
                     )}

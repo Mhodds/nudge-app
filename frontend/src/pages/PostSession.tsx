@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Trash2, Pencil, X, Check, CheckCircle, Circle, Plus,
   ArrowUpLeft, ArrowUp, ArrowUpRight,
-  ArrowLeft, Minus, ArrowRight,
+  ArrowLeft, ArrowRight,
   ArrowDownLeft, ArrowDown, ArrowDownRight,
   StickyNote,
 } from "lucide-react";
@@ -29,12 +29,13 @@ const anglePositions = [
   { key: "SL-R", label: "SL" },
 ];
 
+// UPDATED: Middle is null
 const windGrid = [
   { label: "TAIL-L", icon: ArrowUpLeft, key: "TAIL-L" },
   { label: "TAIL", icon: ArrowUp, key: "TAIL" },
   { label: "TAIL-R", icon: ArrowUpRight, key: "TAIL-R" },
   { label: "LEFT", icon: ArrowLeft, key: "LEFT" },
-  { label: "CALM", icon: Minus, key: "CALM" },
+  null, 
   { label: "RIGHT", icon: ArrowRight, key: "RIGHT" },
   { label: "HEAD-L", icon: ArrowDownLeft, key: "HEAD-L" },
   { label: "HEAD", icon: ArrowDown, key: "HEAD" },
@@ -55,8 +56,8 @@ const PostSession = () => {
   const [editDraft, setEditDraft] = useState<Partial<Kick>>({});
   const [showAppend, setShowAppend] = useState(false);
   const [appendDraft, setAppendDraft] = useState<Partial<Kick>>({
-    distance: "", angle: "", result: undefined, kickType: undefined,
-    wind: "", technicalMiss: "", feel: 0, notes: "",
+    distance: "", angle: "", result: undefined, kickType: "conversion",
+    wind: "STILL", technicalMiss: "", feel: 0, notes: "",
   });
   const [editingMeta, setEditingMeta] = useState(false);
 
@@ -137,14 +138,14 @@ const PostSession = () => {
       kickType: d.kickType as "conversion" | "penalty" | undefined,
       distance: d.distance,
       angle: d.angle,
-      wind: d.wind || undefined,
+      wind: d.wind || "STILL",
       technicalMiss: d.technicalMiss || undefined,
       feel: d.feel || undefined,
       notes: d.notes || undefined,
     };
     const newKicks = [...session.kicks, newKick];
     persist({ ...session, kicks: newKicks, ...recompute(newKicks) });
-    setAppendDraft({ distance: "", angle: "", result: undefined, kickType: undefined, wind: "", technicalMiss: "", feel: 0, notes: "" });
+    setAppendDraft({ distance: "", angle: "", result: undefined, kickType: "conversion", wind: "STILL", technicalMiss: "", feel: 0, notes: "" });
     setShowAppend(false);
   };
 
@@ -175,12 +176,24 @@ const PostSession = () => {
     { name: 'Unspecified', value: unspecifiedCount },
   ].filter(item => item.value > 0);
 
-  // --- Reusable Component for the Form Fields ---
+  // --- NEW: Helper to parse and update the Wind String ---
   const renderEditorFields = (
     draft: Partial<Kick>, 
     setDraft: React.Dispatch<React.SetStateAction<Partial<Kick>>>
   ) => {
-    // Technical Miss builder logic
+    // 1. Split the wind string (e.g., "low-LEFT" -> intensity: "low", angle: "LEFT")
+    const windValue = draft.wind || "STILL";
+    const isStill = windValue === "STILL";
+    const [currentIntensity, currentAngle] = isStill ? ["still", ""] : windValue.split("-");
+
+    const updateWind = (intensity: string, angle: string) => {
+      if (intensity === "still") {
+        setDraft(prev => ({ ...prev, wind: "STILL" }));
+      } else {
+        setDraft(prev => ({ ...prev, wind: `${intensity}-${angle}` }));
+      }
+    };
+
     const currentMiss = draft.technicalMiss || "";
     const isShort = currentMiss.toLowerCase().includes("short");
     const baseMiss = missOptions.find(m => currentMiss.toLowerCase().includes(m.toLowerCase())) || "";
@@ -207,7 +220,7 @@ const PostSession = () => {
           ))}
         </div>
 
-        {/* TECHNICAL MISS (Only shows if result is Miss) */}
+        {/* TECHNICAL MISS */}
         {draft.result === 'miss' && (
           <div className="flex gap-1 rounded-lg bg-secondary p-1">
             {missOptions.map(m => (
@@ -226,7 +239,7 @@ const PostSession = () => {
           </div>
         )}
 
-        {/* DISTANCE & ANGLE (Hide for Tries/DGs) */}
+        {/* DISTANCE & ANGLE */}
         {draft.kickType !== 'try' && draft.kickType !== 'drop_goal' && (
           <>
             <div className="flex rounded-lg bg-secondary p-1">
@@ -250,17 +263,35 @@ const PostSession = () => {
           </>
         )}
 
-        {/* WIND (3x3 Grid) */}
-        <div className="flex flex-wrap gap-1 rounded-lg bg-secondary p-1">
-          {windGrid.map((w) => (
-            <button key={w.key} onClick={() => setDraft((d) => ({ ...d, wind: d.wind === w.key ? undefined : w.key }))}
-              className={`flex-1 min-w-[30%] rounded-md py-1.5 flex items-center justify-center gap-1 font-display text-[9px] font-bold tracking-wider transition-colors ${
-                draft.wind === w.key ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground"
-              }`}
-            >
-              <w.icon className="h-3 w-3" /> {w.label}
-            </button>
-          ))}
+        {/* UPDATED WIND DIAL (Matching MatchDay style) */}
+        <div className="flex flex-col gap-1 rounded-lg bg-secondary p-1">
+          <div className={`grid grid-cols-3 gap-1 mb-1 transition-all ${isStill ? "opacity-20 pointer-events-none" : "opacity-100"}`}>
+            {windGrid.map((w, idx) => (
+              w ? (
+                <button key={w.key} onClick={() => updateWind(currentIntensity, w.key)}
+                  className={`rounded-md py-2 flex flex-col items-center justify-center gap-0.5 transition-colors ${
+                    currentAngle === w.key ? "bg-primary text-primary-foreground shadow-sm" : "bg-background/20 text-muted-foreground"
+                  }`}
+                >
+                  <w.icon className="h-3 w-3" />
+                  <span className="text-[7px] font-black uppercase">{w.label}</span>
+                </button>
+              ) : (
+                <div key={`spacer-${idx}`} />
+              )
+            ))}
+          </div>
+          
+          {/* Intensity Row */}
+          <div className="flex gap-1">
+            {["still", "low", "med", "high"].map((level) => (
+              <button key={level} onClick={() => updateWind(level, currentAngle || "TAIL")}
+                className={`flex-1 rounded-md py-1 font-display text-[8px] font-bold uppercase transition-colors ${
+                  currentIntensity === level ? "bg-foreground text-background" : "text-muted-foreground hover:bg-background/10"
+                }`}
+              >{level}</button>
+            ))}
+          </div>
         </div>
 
         {/* FEEL */}

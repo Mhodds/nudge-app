@@ -8,7 +8,7 @@ import SubmitOverlay from "@/components/SubmitOverlay";
 import {
   CheckCircle, Circle, Trash2, StickyNote,
   ArrowUpLeft, ArrowUp, ArrowUpRight,
-  ArrowLeft, Minus, ArrowRight,
+  ArrowLeft, ArrowRight,
   ArrowDownLeft, ArrowDown, ArrowDownRight,
 } from "lucide-react";
 import {
@@ -29,8 +29,8 @@ const Training = () => {
   const [bandDistance, setBandDistance] = useState("");
   const [positionAngle, setPositionAngle] = useState("");
   
-  // FIX: Defaulting windAngle to "CALM" so it's ready immediately
-  const [windAngle, setWindAngle] = useState("CALM");
+  // UPDATED: Wind defaults to empty for direction
+  const [windAngle, setWindAngle] = useState("");
   const [windIntensity, setWindIntensity] = useState("still");
   
   const [technicalMiss, setTechnicalMiss] = useState("");
@@ -52,12 +52,13 @@ const Training = () => {
     { key: "SL-R", label: "SIDE-R" },
   ];
 
+  // UPDATED: Middle item is null for the "hole" in the dial
   const windGrid = [
     { label: "TAIL-L", icon: ArrowUpLeft, key: "TAIL-L" },
     { label: "TAIL", icon: ArrowUp, key: "TAIL" },
     { label: "TAIL-R", icon: ArrowUpRight, key: "TAIL-R" },
     { label: "LEFT", icon: ArrowLeft, key: "LEFT" },
-    { label: "CALM", icon: Minus, key: "CALM" },
+    null, 
     { label: "RIGHT", icon: ArrowRight, key: "RIGHT" },
     { label: "HEAD-L", icon: ArrowDownLeft, key: "HEAD-L" },
     { label: "HEAD", icon: ArrowDown, key: "HEAD" },
@@ -72,15 +73,27 @@ const Training = () => {
   const totalCount = kicks.length;
   const accuracy = totalCount > 0 ? Math.round((madeCount / totalCount) * 100) : 0;
 
-  // SUBMISSION LOGIC: Now allows submission if windAngle is pre-filled (which it is)
+  // UPDATED: canSubmit now requires a wind direction if intensity isn't "still"
   const canSubmit = bandDistance !== "" && positionAngle !== "" &&
-    (!isDetailed || (windAngle !== "" && feel > 0));
+    (!isDetailed || (feel > 0 && (windIntensity === "still" || windAngle !== "")));
 
-  const buildTechnicalMiss = () => {
+  const buildTechnicalMiss = useCallback(() => {
     if (isShort && technicalMiss) return `${technicalMiss} + Short`;
     if (isShort) return "Short";
     return technicalMiss;
-  };
+  }, [isShort, technicalMiss]);
+
+  // NEW: Unified reset function
+  const resetForm = useCallback(() => {
+    setBandDistance(""); 
+    setPositionAngle(""); 
+    setWindAngle(""); 
+    setWindIntensity("still");
+    setTechnicalMiss(""); 
+    setIsShort(false); 
+    setFeel(0); 
+    setNotes("");
+  }, []);
 
   const logKick = useCallback(
     (result: "made" | "miss") => {
@@ -101,6 +114,7 @@ const Training = () => {
 
       setKicks((prev) => {
         const newKicks = [...prev, newKick];
+        // The Circuit Breaker logic
         if (result === "miss" && prev.length > 0) {
           const lastKick = prev[prev.length - 1];
           if (lastKick.result === "miss") {
@@ -111,17 +125,9 @@ const Training = () => {
         return newKicks;
       });
 
-      // Reset for next kick - maintaining "STILL/CALM" as the default baseline
-      setBandDistance(""); 
-      setPositionAngle(""); 
-      setWindAngle("CALM"); 
-      setWindIntensity("still");
-      setTechnicalMiss(""); 
-      setIsShort(false); 
-      setFeel(0); 
-      setNotes("");
+      resetForm();
     },
-    [canSubmit, kicks.length, bandDistance, positionAngle, isDetailed, windIntensity, windAngle, technicalMiss, isShort, feel, notes]
+    [canSubmit, kicks.length, bandDistance, positionAngle, isDetailed, windIntensity, windAngle, notes, buildTechnicalMiss, resetForm]
   );
 
   const deleteKick = useCallback((id: string) => {
@@ -133,9 +139,14 @@ const Training = () => {
 
   const handleSubmitSet = async () => {
     if (kicks.length === 0) return;
-    const session = buildSession("training", kicks);
-    await saveSessionMutation.mutateAsync(session);
-    navigate(`/session/${session.id}`);
+    setSubmitting(true);
+    try {
+      const session = buildSession("training", kicks);
+      await saveSessionMutation.mutateAsync(session);
+      navigate(`/session/${session.id}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -180,16 +191,20 @@ const Training = () => {
               <div className="space-y-3">
                 <h3 className="font-display text-xs font-black tracking-widest text-foreground uppercase italic">WIND</h3>
                 <div className={`grid grid-cols-3 gap-1 transition-all duration-300 ${windIntensity === "still" ? "opacity-20 pointer-events-none" : "opacity-100"}`}>
-                  {windGrid.map((item) => (
-                    <button key={item.key} onClick={() => setWindAngle(item.key)} className={`flex flex-col items-center justify-center rounded-lg py-2 transition-all ${windAngle === item.key ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground/50"}`}>
-                      <item.icon className="h-4 w-4" />
-                      <span className="text-[8px] font-black mt-1 uppercase">{item.label}</span>
-                    </button>
+                  {windGrid.map((item, index) => (
+                    item ? (
+                      <button key={item.key} onClick={() => setWindAngle(item.key)} className={`flex flex-col items-center justify-center rounded-lg py-2 transition-all ${windAngle === item.key ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground/50"}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span className="text-[8px] font-black mt-1 uppercase">{item.label}</span>
+                      </button>
+                    ) : (
+                      <div key={`spacer-${index}`} />
+                    )
                   ))}
                 </div>
                 <div className="flex rounded-lg bg-secondary p-1">
                   {["still", "low", "med", "high"].map((level) => (
-                    <button key={level} onClick={() => { setWindIntensity(level); if (level === "still") setWindAngle("CALM"); }} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${windIntensity === level ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"}`}>{level}</button>
+                    <button key={level} onClick={() => { setWindIntensity(level); if (level === "still") setWindAngle(""); }} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black uppercase tracking-widest transition-all ${windIntensity === level ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"}`}>{level}</button>
                   ))}
                 </div>
               </div>
@@ -238,7 +253,7 @@ const Training = () => {
             </button>
           </div>
 
-          {/* TIMELINE */}
+          {/* TIMELINE - SYNCED TO MATCHDAY STYLE */}
           <div>
             <h2 className="mb-3 font-display text-[10px] font-black tracking-[0.3em] text-muted-foreground uppercase italic">Live Timeline</h2>
             <div className="flex flex-col gap-2">
@@ -249,13 +264,37 @@ const Training = () => {
                   <div key={kick.id} className="rounded-xl border border-card-border bg-card px-4 py-3 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="font-display text-xs font-bold text-muted-foreground">#{kick.seq}</span>
-                        {kick.result === "made" ? <CheckCircle className="h-5 w-5 text-success" /> : <Circle className="h-5 w-5 text-training" />}
-                        <span className="font-display text-xs font-bold tracking-wider text-foreground uppercase">
+                        <span className="font-mono text-[10px] font-bold text-muted-foreground">#{kick.seq}</span>
+                        {kick.result === "made" ? <CheckCircle className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-training" />}
+                        <span className="font-display text-[10px] font-black uppercase tracking-widest text-foreground italic">
                           {kick.distance} • {kick.angle}
                         </span>
                       </div>
+                      <button onClick={() => deleteKick(kick.id)} className="text-muted-foreground/40 hover:text-destructive transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
+
+                    {(kick.wind || (kick.feel && kick.feel > 0) || kick.notes || (kick.result === 'miss' && kick.technicalMiss)) && (
+                      <div className="ml-7 mt-2 flex flex-col gap-1.5">
+                        {/* Miss badge */}
+                        {kick.result === 'miss' && kick.technicalMiss && (
+                          <div className="flex items-center"><span className="rounded bg-training/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-training uppercase border border-training/20">{kick.technicalMiss}</span></div>
+                        )}
+                        {/* Wind and Feel row */}
+                        {(kick.wind || (kick.feel && kick.feel > 0)) && (
+                          <div className="flex items-center gap-3">
+                            {kick.wind && <span className="rounded bg-primary/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-primary uppercase border border-primary/20">WIND: {kick.wind}</span>}
+                            {kick.feel && kick.feel > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span className="font-display text-[8px] font-bold tracking-widest text-muted-foreground uppercase">FEEL</span>
+                                <div className="flex items-center gap-0.5">{[1, 2, 3, 4, 5].map((v) => (<div key={v} className={`h-1 w-1 rounded-full ${v <= (kick.feel || 0) ? 'bg-pink-500' : 'bg-secondary border border-card-border'}`} />))}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Notes row */}
+                        {kick.notes && (<div className="font-body text-[10px] italic text-muted-foreground flex items-center gap-1"><StickyNote className="h-2.5 w-2.5 shrink-0" /><span>{kick.notes}</span></div>)}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
