@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/dialog";
 import { Info } from "lucide-react";
 
+const ZONE_COLUMNS = "10% 14% 20% 12% 20% 14% 10%";
+
 const NudgeZonesModal = () => {
   return (
     <Dialog>
@@ -30,9 +32,8 @@ const NudgeZonesModal = () => {
             {/* VIBRANT GRID LANES */}
             <div 
               className="grid h-full w-full"
-              style={{ gridTemplateColumns: "10% 14% 20% 12% 20% 14% 10%" }}
+              style={{ gridTemplateColumns: ZONE_COLUMNS }}
             >
-              {/* Opacity bumped from /40 to /90 for that "Neon" pop */}
               <div className="bg-red-500/90 border-r border-black/10" />
               <div className="bg-orange-500/90 border-r border-black/10" />
               <div className="bg-blue-500/90 border-r border-black/10" />
@@ -47,10 +48,9 @@ const NudgeZonesModal = () => {
               <div className="h-[3px] w-full bg-white/30" />
               <div 
                 className="grid w-full"
-                style={{ gridTemplateColumns: "10% 14% 20% 12% 20% 14% 10%" }}
+                style={{ gridTemplateColumns: ZONE_COLUMNS }}
               >
                 <div className="col-start-4 flex justify-between h-8">
-                  {/* Cyan Uprights for high visibility */}
                   <div className="h-full w-[3px] bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)] rounded-b-sm" /> 
                   <div className="h-full w-[3px] bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)] rounded-b-sm" />
                 </div>
@@ -60,7 +60,7 @@ const NudgeZonesModal = () => {
             {/* HIGH-CONTRAST LABELS */}
             <div 
               className="absolute inset-x-0 bottom-2.5 grid text-center font-display text-[11px] font-black tracking-[0.1em] text-white uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]"
-              style={{ gridTemplateColumns: "10% 14% 20% 12% 20% 14% 10%" }}
+              style={{ gridTemplateColumns: ZONE_COLUMNS }}
             >
               <div>SL</div>
               <div>5M</div>

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isAnalytics = location.pathname === "/analytics";
+  const isAnalytics = location.pathname.startsWith("/analytics");
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-card-border bg-bottom-nav/80 backdrop-blur-md">
