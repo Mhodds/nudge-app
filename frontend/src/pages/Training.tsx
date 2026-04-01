@@ -5,7 +5,7 @@ import { useSaveSession } from "@/hooks/useSessions";
 import { useProfile } from "@/hooks/useProfile"; 
 import { Kick } from "@/types/session";
 import SubmitOverlay from "@/components/SubmitOverlay";
-import { CheckCircle, Circle, Trash2, StickyNote } from "lucide-react";
+import { CheckCircle, Circle, Trash2, StickyNote, Lock, Unlock, Info } from "lucide-react"; 
 import WindDial from "@/components/WindDial"; 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useInterfaceMode } from "@/context/InterfaceModeContext";
 
-// 1. THE DRILL BLUEPRINT
 const INITIAL_FORM_STATE = {
   distance: "",
   angle: "",
@@ -29,6 +28,7 @@ const INITIAL_FORM_STATE = {
 const Training = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showLockTip, setShowLockTip] = useState(false); // <-- Inline Tip State
   const navigate = useNavigate();
   const { mode } = useInterfaceMode();
   const saveSessionMutation = useSaveSession();
@@ -37,6 +37,7 @@ const Training = () => {
   const [form, setForm] = useState(INITIAL_FORM_STATE);
   const [kicks, setKicks] = useState<Kick[]>([]);
   const [showMantra, setShowMantra] = useState(false); 
+  const [isLocked, setIsLocked] = useState(false);
 
   const isDetailed = mode === "detailed";
 
@@ -53,7 +54,19 @@ const Training = () => {
     return basicFields && detailedFields;
   }, [form, isDetailed]);
 
-  const resetForm = useCallback(() => setForm(INITIAL_FORM_STATE), []);
+  const resetForm = useCallback(() => {
+    setForm((prev) => 
+      isLocked 
+        ? { 
+            ...INITIAL_FORM_STATE, 
+            distance: prev.distance, 
+            angle: prev.angle,
+            windAngle: prev.windAngle,
+            windIntensity: prev.windIntensity
+          } 
+        : INITIAL_FORM_STATE
+    );
+  }, [isLocked]);
 
   const updateForm = (updates: Partial<typeof INITIAL_FORM_STATE>) => {
     setForm(prev => ({ ...prev, ...updates }));
@@ -120,7 +133,7 @@ const Training = () => {
     <>
     {submitting && <SubmitOverlay />}
     <div className="min-h-screen bg-background pb-44">
-      <div className="mx-auto max-w-md px-4 pt-6 flex flex-col gap-6">
+      <div className="mx-auto max-w-md px-4 pt-6 flex flex-col gap-6 relative">
         
         {/* HEADER */}
         <div className="flex items-center justify-between">
@@ -133,7 +146,7 @@ const Training = () => {
           </div>
         </div>
 
-        {/* INPUTS */}
+        {/* INPUTS SECTION */}
         <div className="space-y-6">
           <div>
             <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">BAND DISTANCE</h3>
@@ -148,18 +161,16 @@ const Training = () => {
             <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">POSITION ANGLE</h3>
             <div className="flex rounded-lg bg-secondary p-1">
               {[
-                { key: "SL-L", label: "SIDE-L" }, { key: "5m-L", label: "5M" }, { key: "15m-L", label: "15M" },
-                { key: "FR", label: "FR" }, { key: "15m-R", label: "15M" }, { key: "5m-R", label: "5M" }, { key: "SL-R", label: "SIDE-R" }
+                { key: "SL-L", label: "SL" }, { key: "5m-L", label: "5M" }, { key: "15m-L", label: "15M" },
+                { key: "FR", label: "FR" }, { key: "15m-R", label: "15M" }, { key: "5m-R", label: "5M" }, { key: "SL-R", label: "SL" }
               ].map((opt) => (
                 <button key={opt.key} onClick={() => updateForm({ angle: opt.key })} className={`flex-1 rounded-md py-2 font-display text-[10px] font-black tracking-widest transition-all ${form.angle === opt.key ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt.label}</button>
               ))}
             </div>
           </div>
 
-          {/* THE SHARED WIND DIAL COMPONENT IS HERE */}
           {isDetailed && (
             <div className="grid grid-cols-2 gap-4">
-              
               <WindDial 
                 intensity={form.windIntensity} 
                 angle={form.windAngle} 
@@ -167,35 +178,69 @@ const Training = () => {
                 activeColorClass="bg-primary text-primary-foreground shadow-lg shadow-primary/20"
               />
 
-              <div className="flex flex-col gap-4">
-                <div>
-                  <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">MISS / DEPTH</h3>
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex rounded-lg bg-secondary p-1">
-                      {["Hook", "Pure", "Push"].map((opt) => (
-                        <button key={opt} onClick={() => updateForm({ technicalMiss: form.technicalMiss === opt ? "" : opt })} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${form.technicalMiss === opt ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt.toUpperCase()}</button>
+              <div className="flex flex-col h-full">
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <h3 className="mb-3 font-display text-xs font-black tracking-widest text-foreground uppercase italic">MISS / DEPTH</h3>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex rounded-lg bg-secondary p-1">
+                        {["Hook", "Pure", "Push"].map((opt) => (
+                          <button key={opt} onClick={() => updateForm({ technicalMiss: form.technicalMiss === opt ? "" : opt })} className={`flex-1 rounded-md py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${form.technicalMiss === opt ? "bg-foreground text-background" : "text-muted-foreground"}`}>{opt.toUpperCase()}</button>
+                        ))}
+                      </div>
+                      <button onClick={() => updateForm({ isShort: !form.isShort })} className={`rounded-lg py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${form.isShort ? "bg-training text-white shadow-lg shadow-training/20" : "bg-secondary text-muted-foreground"}`}>SHORT</button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between px-1">
+                      <h3 className="font-display text-xs font-black tracking-widest text-foreground uppercase italic">FEEL</h3>
+                      <span className="font-mono text-[10px] font-bold text-training">{form.feel}/5</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((num) => (
+                        <button key={num} onClick={() => updateForm({ feel: num })} className={`flex-1 rounded-md py-1.5 font-display text-[10px] font-black transition-all ${num <= form.feel ? "bg-pink-500 text-white" : "bg-secondary text-muted-foreground"}`}>{num}</button>
                       ))}
                     </div>
-                    <button onClick={() => updateForm({ isShort: !form.isShort })} className={`rounded-lg py-1.5 font-display text-[9px] font-black tracking-widest transition-all ${form.isShort ? "bg-training text-white shadow-lg shadow-training/20" : "bg-secondary text-muted-foreground"}`}>SHORT</button>
                   </div>
                 </div>
-                <div>
-                  <div className="mb-2 flex items-center justify-between px-1">
-                    <h3 className="font-display text-xs font-black tracking-widest text-foreground uppercase italic">FEEL</h3>
-                    <span className="font-mono text-[10px] font-bold text-matchday">{form.feel}/5</span>
+
+                {/* THE "LOCKED IN" TOGGLE WITH INLINE TIP */}
+                <div className="relative mt-auto flex items-center justify-between rounded-xl border border-card-border bg-card px-3 py-3 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowLockTip(!showLockTip); }} 
+                      className="text-muted-foreground/40 hover:text-training transition-colors"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
+                    <h3 className="font-display text-[10px] font-black tracking-widest text-foreground uppercase italic mt-0.5">LOCKED IN</h3>
                   </div>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((num) => (
-                      <button key={num} onClick={() => updateForm({ feel: num })} className={`flex-1 rounded-md py-1.5 font-display text-[10px] font-black transition-all ${num <= form.feel ? "bg-pink-500 text-white" : "bg-secondary text-muted-foreground"}`}>{num}</button>
-                    ))}
-                  </div>
+                  
+                  <button 
+                    onClick={() => setIsLocked(!isLocked)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${isLocked ? 'bg-training' : 'bg-secondary'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isLocked ? 'translate-x-4' : 'translate-x-1'}`} />
+                  </button>
+
+                  {/* THE INLINE TIP */}
+                  {showLockTip && (
+                    <div className="absolute bottom-full mb-3 left-0 z-30 w-48 rounded-lg border border-card-border bg-card px-3 py-2 shadow-2xl animate-in fade-in slide-in-from-bottom-1 duration-200">
+                      <p className="font-body text-[10px] leading-snug text-muted-foreground italic">
+                        <span className="text-training font-black italic">LOCKED IN:</span> Keeps your position and wind settings active for high-volume repetitive kicks.
+                      </p>
+                      {/* Triangle Arrow */}
+                      <div className="absolute -bottom-1.5 left-4 h-3 w-3 rotate-45 border-b border-r border-card-border bg-card" />
+                    </div>
+                  )}
                 </div>
+                
               </div>
             </div>
           )}
         </div>
 
-        {/* LOGGING */}
+        {/* LOGGING SECTION */}
         <div className="space-y-6">
           <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card px-4 py-3">
             <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -272,6 +317,7 @@ const Training = () => {
         </div>
       </div>
 
+      {/* EXIT CONFIRM MODAL */}
       <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Leave Training?</AlertDialogTitle><AlertDialogDescription>You have unsaved kicks. Leaving without submitting will discard all data.</AlertDialogDescription></AlertDialogHeader>

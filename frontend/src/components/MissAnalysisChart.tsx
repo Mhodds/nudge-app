@@ -10,13 +10,15 @@ interface MissAnalysisChartProps {
   totalMisses?: number;
 }
 
+// --- 1. COORDINATED PRO PALETTE ---
+// Syncing these with your EfficiencyMatrix heatmap colors
 const COLOR_MAP: Record<string, string> = {
-  "Pure": "hsl(190, 100%, 50%)",
-  "Hook": "hsl(330, 85%, 55%)",
-  "Push": "hsl(30, 100%, 60%)",
-  "Unspecified": "#4b5563"
+  "Pure": "hsl(190, 100%, 50%)", // Pro-Cyan (Good technical strike)
+  "Hook": "hsl(340, 85%, 55%)", // Training Pink (The common miss)
+  "Push": "hsl(30, 100%, 60%)", // Warning Orange (The block miss)
+  "Unspecified": "hsl(220, 20%, 28%)" // Neutral Grey (The rest)
 };
-const DEFAULT_COLOR = "#a855f7";
+const DEFAULT_COLOR = "hsl(220, 10%, 45%)";
 
 const MissAnalysisChart = ({ data, shortMisses = 0, totalMisses = 0 }: MissAnalysisChartProps) => {
   if (!data || data.length === 0) return null;
@@ -26,14 +28,17 @@ const MissAnalysisChart = ({ data, shortMisses = 0, totalMisses = 0 }: MissAnaly
 
   if (chartTotal === 0) return null;
 
+  // Sorting to find the dominant miss for the center label
   const topMiss = [...data].sort((a, b) => b.value - a.value)[0];
   const topPercentage = grandTotal > 0 ? Math.round((topMiss.value / grandTotal) * 100) : 0;
   const shortPct = grandTotal > 0 ? Math.round((shortMisses / grandTotal) * 100) : 0;
 
   return (
-    <div className="rounded-xl border border-card-border bg-card p-4">
+    <div className="rounded-xl border border-card-border bg-card p-4 shadow-sm animate-in fade-in zoom-in-95 duration-500">
+      
       {/* TOP SECTION: CHART & LEGEND */}
       <div className="flex items-center justify-between gap-4 h-[160px]">
+        
         {/* DONUT CHART */}
         <div className="w-[120px] h-[120px] relative shrink-0">
           <ResponsiveContainer width="100%" height="100%">
@@ -47,39 +52,42 @@ const MissAnalysisChart = ({ data, shortMisses = 0, totalMisses = 0 }: MissAnaly
                 paddingAngle={4}
                 dataKey="value"
                 stroke="none"
-                cornerRadius={4}
+                cornerRadius={6} // Slightly smoother corners
+                isAnimationActive={true}
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLOR_MAP[entry.name] || DEFAULT_COLOR} />
+                  <Cell key={`cell-${index}`} fill={COLOR_MAP[entry.name] || DEFAULT_COLOR} className="outline-none" />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
+          
+          {/* CENTER TEXT HUB */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <p className="font-display text-xl font-black italic leading-none text-foreground">{topPercentage}%</p>
-            <p className="font-display text-[8px] font-black uppercase tracking-wider text-muted-foreground mt-1 text-center px-1">
+            <p className="font-display text-2xl font-black italic tracking-tighter leading-none text-foreground">{topPercentage}%</p>
+            <p className="font-display text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground mt-1.5 text-center px-1">
               {topMiss.name}
             </p>
           </div>
         </div>
 
-        {/* LEGEND LIST */}
+        {/* LEGEND LIST - High density style */}
         <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto max-h-full pr-1">
           {data.map((item) => {
             const percentage = grandTotal > 0 ? Math.round((item.value / grandTotal) * 100) : 0;
             const itemColor = COLOR_MAP[item.name] || DEFAULT_COLOR;
             
             return (
-              <div key={item.name} className="flex items-center justify-between gap-2 rounded-lg bg-secondary/10 px-3 py-1.5 border border-card-border/20">
+              <div key={item.name} className="flex items-center justify-between gap-2 rounded-lg bg-secondary/10 px-3 py-2 border border-card-border/20 transition-all hover:bg-secondary/20">
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: itemColor }} />
-                  <p className="font-display text-[9px] font-black uppercase italic tracking-wider text-foreground">
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: itemColor }} />
+                  <p className="font-display text-[9px] font-black uppercase italic tracking-widest text-foreground">
                     {item.name}
                   </p>
                 </div>
                 <div className="flex items-baseline gap-1">
                   <p className="font-mono text-xs font-bold text-foreground">{percentage}%</p>
-                  <p className="font-mono text-[8px] text-muted-foreground">({item.value})</p>
+                  <p className="font-mono text-[8px] text-muted-foreground/60 font-bold">({item.value})</p>
                 </div>
               </div>
             );
@@ -87,23 +95,23 @@ const MissAnalysisChart = ({ data, shortMisses = 0, totalMisses = 0 }: MissAnaly
         </div>
       </div>
 
-      {/* BOTTOM SECTION: POWER DEFICIT (Tucked inside the card) */}
+      {/* BOTTOM SECTION: POWER DEFICIT */}
       {shortMisses > 0 && (
-        <div className="mt-4 flex items-center justify-between rounded-lg bg-secondary/20 p-2.5 border-t border-card-border/30">
-          <div className="flex items-center gap-2.5">
-            <div className="rounded bg-primary/10 p-1">
+        <div className="mt-4 flex items-center justify-between rounded-lg bg-secondary/20 p-3 border border-card-border/30">
+          <div className="flex items-center gap-3">
+            <div className="rounded-md bg-primary/10 p-1.5 border border-primary/20 shadow-inner">
               <TrendingDown className="h-3.5 w-3.5 text-primary" />
             </div>
             <div>
-              <p className="font-display text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground leading-none">
+              <p className="font-display text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground leading-none mb-1">
                 Power Deficit
               </p>
-              <p className="font-mono text-[10px] text-foreground mt-1">
-                <strong className="text-primary">{shortPct}%</strong> of misses fell short
+              <p className="font-mono text-[10px] text-foreground/80">
+                <span className="text-primary font-black italic">{shortPct}%</span> of misses fell short
               </p>
             </div>
           </div>
-          <div className="font-mono text-[10px] font-bold text-muted-foreground bg-secondary/30 px-2 py-0.5 rounded border border-card-border/30">
+          <div className="font-mono text-[9px] font-bold text-muted-foreground/60 bg-secondary/40 px-2.5 py-1 rounded-md border border-card-border/30">
             {shortMisses}/{grandTotal}
           </div>
         </div>

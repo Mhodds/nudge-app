@@ -1,17 +1,14 @@
 import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  Trash2, Pencil, X, Check, CheckCircle, Circle, Plus,
-  ArrowUpLeft, ArrowUp, ArrowUpRight,
-  ArrowLeft, ArrowRight,
-  ArrowDownLeft, ArrowDown, ArrowDownRight,
-  StickyNote,
+  Trash2, Pencil, X, Check, CheckCircle, Circle, Plus, StickyNote,
 } from "lucide-react";
 import { useSession, useUpdateSession, useDeleteSession } from "@/hooks/useSessions";
 import { Kick, Session } from "@/types/session";
 import BottomNav from "@/components/BottomNav";
 import EfficiencyMatrix from "@/components/EfficiencyMatrix";
 import MissAnalysisChart from "@/components/MissAnalysisChart";
+import WindDial from "@/components/WindDial"; // <-- Imported our Shared Component!
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -27,19 +24,6 @@ const anglePositions = [
   { key: "15m-R", label: "15m" },
   { key: "5m-R", label: "5m" },
   { key: "SL-R", label: "SL" },
-];
-
-// UPDATED: Middle is null
-const windGrid = [
-  { label: "TAIL-L", icon: ArrowUpLeft, key: "TAIL-L" },
-  { label: "TAIL", icon: ArrowUp, key: "TAIL" },
-  { label: "TAIL-R", icon: ArrowUpRight, key: "TAIL-R" },
-  { label: "LEFT", icon: ArrowLeft, key: "LEFT" },
-  null, 
-  { label: "RIGHT", icon: ArrowRight, key: "RIGHT" },
-  { label: "HEAD-L", icon: ArrowDownLeft, key: "HEAD-L" },
-  { label: "HEAD", icon: ArrowDown, key: "HEAD" },
-  { label: "HEAD-R", icon: ArrowDownRight, key: "HEAD-R" },
 ];
 
 const missOptions = ["Pure", "Hook", "Push"];
@@ -176,21 +160,23 @@ const PostSession = () => {
     { name: 'Unspecified', value: unspecifiedCount },
   ].filter(item => item.value > 0);
 
-  // --- NEW: Helper to parse and update the Wind String ---
   const renderEditorFields = (
     draft: Partial<Kick>, 
     setDraft: React.Dispatch<React.SetStateAction<Partial<Kick>>>
   ) => {
-    // 1. Split the wind string (e.g., "low-LEFT" -> intensity: "low", angle: "LEFT")
+    // Adapter logic: translating string "low-LEFT" to variables for WindDial
     const windValue = draft.wind || "STILL";
     const isStill = windValue === "STILL";
     const [currentIntensity, currentAngle] = isStill ? ["still", ""] : windValue.split("-");
 
-    const updateWind = (intensity: string, angle: string) => {
-      if (intensity === "still") {
+    const handleWindChange = (updates: { windIntensity?: string; windAngle?: string }) => {
+      const newIntensity = updates.windIntensity !== undefined ? updates.windIntensity : currentIntensity;
+      const newAngle = updates.windAngle !== undefined ? updates.windAngle : currentAngle;
+
+      if (newIntensity === "still") {
         setDraft(prev => ({ ...prev, wind: "STILL" }));
       } else {
-        setDraft(prev => ({ ...prev, wind: `${intensity}-${angle}` }));
+        setDraft(prev => ({ ...prev, wind: `${newIntensity}-${newAngle}` }));
       }
     };
 
@@ -263,35 +249,14 @@ const PostSession = () => {
           </>
         )}
 
-        {/* UPDATED WIND DIAL (Matching MatchDay style) */}
-        <div className="flex flex-col gap-1 rounded-lg bg-secondary p-1">
-          <div className={`grid grid-cols-3 gap-1 mb-1 transition-all ${isStill ? "opacity-20 pointer-events-none" : "opacity-100"}`}>
-            {windGrid.map((w, idx) => (
-              w ? (
-                <button key={w.key} onClick={() => updateWind(currentIntensity, w.key)}
-                  className={`rounded-md py-2 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                    currentAngle === w.key ? "bg-primary text-primary-foreground shadow-sm" : "bg-background/20 text-muted-foreground"
-                  }`}
-                >
-                  <w.icon className="h-3 w-3" />
-                  <span className="text-[7px] font-black uppercase">{w.label}</span>
-                </button>
-              ) : (
-                <div key={`spacer-${idx}`} />
-              )
-            ))}
-          </div>
-          
-          {/* Intensity Row */}
-          <div className="flex gap-1">
-            {["still", "low", "med", "high"].map((level) => (
-              <button key={level} onClick={() => updateWind(level, currentAngle || "TAIL")}
-                className={`flex-1 rounded-md py-1 font-display text-[8px] font-bold uppercase transition-colors ${
-                  currentIntensity === level ? "bg-foreground text-background" : "text-muted-foreground hover:bg-background/10"
-                }`}
-              >{level}</button>
-            ))}
-          </div>
+        {/* REPLACED WITH SHARED COMPONENT */}
+        <div className="rounded-lg bg-secondary p-2">
+          <WindDial
+            intensity={currentIntensity}
+            angle={currentAngle}
+            onChange={handleWindChange}
+            activeColorClass="bg-primary text-primary-foreground shadow-sm"
+          />
         </div>
 
         {/* FEEL */}

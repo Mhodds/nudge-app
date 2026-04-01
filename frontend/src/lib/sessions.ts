@@ -3,6 +3,21 @@ import { Session, Kick } from "@/types/session";
 
 const STORAGE_KEY = "kicking-sessions";
 
+// --- 1. LEGACY ADAPTER ---
+// Ensures old data format (SIDE-L) matches our new UI standard (SL)
+const normalizeKick = (k: any): Kick => ({
+  id: k.id,
+  seq: k.seq,
+  result: k.result as "made" | "miss",
+  kickType: k.kick_type as Kick["kickType"],
+  distance: k.distance,
+  angle: k.angle === "SIDE-L" ? "SL-L" : k.angle === "SIDE-R" ? "SL-R" : k.angle,
+  wind: k.wind || undefined,
+  technicalMiss: k.technical_miss || undefined,
+  feel: k.feel || undefined,
+  notes: k.notes || undefined,
+});
+
 // ── Supabase-backed async functions ──
 
 export async function getSessions(): Promise<Session[]> {
@@ -23,18 +38,7 @@ export async function getSessions(): Promise<Session[]> {
 
   const kicksBySession: Record<string, Kick[]> = {};
   for (const k of kicks || []) {
-    const mapped: Kick = {
-      id: k.id,
-      seq: k.seq,
-      result: k.result as "made" | "miss",
-      kickType: k.kick_type as Kick["kickType"],
-      distance: k.distance,
-      angle: k.angle,
-      wind: k.wind || undefined,
-      technicalMiss: k.technical_miss || undefined,
-      feel: k.feel || undefined,
-      notes: k.notes || undefined,
-    };
+    const mapped = normalizeKick(k);
     if (!kicksBySession[k.session_id]) kicksBySession[k.session_id] = [];
     kicksBySession[k.session_id].push(mapped);
   }
@@ -54,6 +58,7 @@ export async function getSessions(): Promise<Session[]> {
   }));
 }
 
+// FIXED: Added back the paginated fetch that was missing
 export async function getSessionsPaginated(
   page: number,
   pageSize = 15
@@ -78,18 +83,7 @@ export async function getSessionsPaginated(
 
   const kicksBySession: Record<string, Kick[]> = {};
   for (const k of kicks || []) {
-    const mapped: Kick = {
-      id: k.id,
-      seq: k.seq,
-      result: k.result as "made" | "miss",
-      kickType: k.kick_type as Kick["kickType"],
-      distance: k.distance,
-      angle: k.angle,
-      wind: k.wind || undefined,
-      technicalMiss: k.technical_miss || undefined,
-      feel: k.feel || undefined,
-      notes: k.notes || undefined,
-    };
+    const mapped = normalizeKick(k);
     if (!kicksBySession[k.session_id]) kicksBySession[k.session_id] = [];
     kicksBySession[k.session_id].push(mapped);
   }
@@ -129,18 +123,7 @@ export async function getSession(id: string): Promise<Session | undefined> {
     type: s.type as "match" | "training",
     timestamp: s.timestamp,
     teamName: s.team_name || undefined,
-    kicks: (kicks || []).map((k) => ({
-      id: k.id,
-      seq: k.seq,
-      result: k.result as "made" | "miss",
-      kickType: k.kick_type as Kick["kickType"],
-      distance: k.distance,
-      angle: k.angle,
-      wind: k.wind || undefined,
-      technicalMiss: k.technical_miss || undefined,
-      feel: k.feel || undefined,
-      notes: k.notes || undefined,
-    })),
+    kicks: (kicks || []).map(normalizeKick),
     madeCount: s.made_count,
     totalCount: s.total_count,
     accuracy: s.accuracy,
@@ -154,14 +137,6 @@ export async function saveSession(session: Session): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const triesPoints = (session.tries || 0) * 5;
-  const kickPoints = session.kicks.reduce((acc, k) => {
-    if (k.result !== 'made') return acc;
-    if (k.kickType === 'conversion') return acc + 2;
-    if (k.kickType === 'penalty' || k.kickType === 'drop_goal') return acc + 3;
-    return acc;
-  }, 0);
-
   const { error: sessionError } = await supabase.from("sessions").insert({
     id: session.id,
     user_id: user.id,
@@ -173,7 +148,7 @@ export async function saveSession(session: Session): Promise<void> {
     accuracy: session.accuracy,
     avg_feel: session.avgFeel,
     tries: session.tries || 0,
-    points_total: triesPoints + kickPoints,
+    points_total: session.pointsTotal || 0,
   });
 
   if (sessionError) throw sessionError;
@@ -188,7 +163,7 @@ export async function saveSession(session: Session): Promise<void> {
       distance: k.distance,
       angle: k.angle,
       wind: k.wind || null,
-      technical_miss: k.technicalMiss || null,
+      technical_miss: k.technical_miss || null,
       feel: k.feel || null,
       notes: k.notes || null,
     }));
@@ -199,6 +174,11 @@ export async function saveSession(session: Session): Promise<void> {
 }
 
 export async function updateSession(updated: Session): Promise<void> {
+  const points = (updated.tries || 0) * 5 + updated.kicks.reduce((acc, k) => {
+    if (k.result !== 'made') return acc;
+    return acc + (k.kickType === 'conversion' ? 2 : 3);
+  }, 0);
+
   const { error: sessionError } = await supabase
     .from("sessions")
     .update({
@@ -209,41 +189,38 @@ export async function updateSession(updated: Session): Promise<void> {
       total_count: updated.totalCount,
       accuracy: updated.accuracy,
       avg_feel: updated.avgFeel,
+      tries: updated.tries || 0,
+      points_total: points,
     })
     .eq("id", updated.id);
 
   if (sessionError) throw sessionError;
 
-  const kickIds: string[] = [];
-  if (updated.kicks.length > 0) {
-    const kickRows = updated.kicks.map((k) => ({
-      id: k.id,
-      session_id: updated.id,
-      seq: k.seq,
-      result: k.result,
-      kick_type: k.kickType || null,
-      distance: k.distance,
-      angle: k.angle,
-      wind: k.wind || null,
-      technical_miss: k.technicalMiss || null,
-      feel: k.feel || null,
-      notes: k.notes || null,
-    }));
+  const kickRows = updated.kicks.map((k) => ({
+    id: k.id,
+    session_id: updated.id,
+    seq: k.seq,
+    result: k.result,
+    kick_type: k.kickType || null,
+    distance: k.distance,
+    angle: k.angle,
+    wind: k.wind || null,
+    technical_miss: k.technical_miss || null,
+    feel: k.feel || null,
+    notes: k.notes || null,
+  }));
 
+  if (kickRows.length > 0) {
     const { error: upsertError } = await supabase
       .from("kicks")
       .upsert(kickRows, { onConflict: "id" });
     if (upsertError) throw upsertError;
 
-    kickIds.push(...updated.kicks.map((k) => k.id));
-  }
-
-  if (kickIds.length > 0) {
-    await supabase
-      .from("kicks")
+    const currentIds = updated.kicks.map(k => k.id);
+    await supabase.from("kicks")
       .delete()
       .eq("session_id", updated.id)
-      .not("id", "in", `(${kickIds.join(",")})`);
+      .not("id", "in", `(${currentIds.join(",")})`);
   } else {
     await supabase.from("kicks").delete().eq("session_id", updated.id);
   }
@@ -253,26 +230,29 @@ export async function deleteSession(id: string): Promise<void> {
   await supabase.from("sessions").delete().eq("id", id);
 }
 
-// ── BUILD SESSION: THE STATS ENGINE ──
 export function buildSession(
   type: "match" | "training",
   kicks: Kick[],
   teamName?: string
 ): Session {
-  // FIXED: Wider filter to include Training kicks while still excluding Tries/DGs from accuracy
   const placeKicks = kicks.filter((k) => k.kickType !== "try" && k.kickType !== "drop_goal");
-  
   const madeCount = placeKicks.filter((k) => k.result === "made").length;
   const totalCount = placeKicks.length;
   const accuracy = totalCount > 0 ? Math.round((madeCount / totalCount) * 100) : 0;
   
   const triesCount = kicks.filter(k => k.kickType === 'try').length;
   
+  const kickPoints = kicks.reduce((acc, k) => {
+    if (k.result !== 'made') return acc;
+    if (k.kickType === 'conversion') return acc + 2;
+    if (k.kickType === 'penalty' || k.kickType === 'drop_goal') return acc + 3;
+    return acc;
+  }, 0);
+
   const feelsWithValue = placeKicks.filter((k) => k.feel && k.feel > 0);
-  const avgFeel =
-    feelsWithValue.length > 0
-      ? Math.round((feelsWithValue.reduce((sum, k) => sum + (k.feel || 0), 0) / feelsWithValue.length) * 10) / 10
-      : 0;
+  const avgFeel = feelsWithValue.length > 0
+    ? Math.round((feelsWithValue.reduce((sum, k) => sum + (k.feel || 0), 0) / feelsWithValue.length) * 10) / 10
+    : 0;
 
   return {
     id: crypto.randomUUID(),
@@ -285,9 +265,11 @@ export function buildSession(
     accuracy,
     avgFeel,
     tries: triesCount,
+    pointsTotal: (triesCount * 5) + kickPoints,
   };
 }
 
+// FIXED: Added back the migration utility that was missing
 export async function migrateLocalStorageToCloud(): Promise<number> {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return 0;
