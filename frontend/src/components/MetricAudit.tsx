@@ -1,28 +1,61 @@
 import { Trophy, Calendar, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
+import { useMemo } from "react";
+
+interface Kick {
+  kickType: 'conversion' | 'penalty' | 'try' | 'drop_goal';
+  result: 'made' | 'missed';
+}
+
+interface Session {
+  id: string;
+  type: string;
+  kicks?: Kick[];
+  teamName?: string;
+  drillName?: string;
+  timestamp: string;
+}
 
 interface MetricAuditProps {
-  sessions: any[];
+  sessions: Session[];
 }
+
+// Constants
+const PLACE_KICK_TYPES = ['conversion', 'penalty'];
+const SESSION_TYPE_MATCH = 'match';
+
+// Helper function to calculate accuracy
+const calculateAccuracy = (kicks: Kick[] = []) => {
+  const placeKicks = kicks.filter(k => 
+    PLACE_KICK_TYPES.includes(k.kickType)
+  );
+  const made = placeKicks.filter(k => k.result === 'made').length;
+  const total = placeKicks.length;
+  const percentage = total > 0 ? Math.round((made / total) * 100) : 0;
+  
+  return { made, total, percentage };
+};
+
+// Helper function to check if session is a match
+const isMatchSession = (session: Session): boolean => {
+  return String(session.type || '').toLowerCase().trim() === SESSION_TYPE_MATCH;
+};
 
 const MetricAudit = ({ sessions }: MetricAuditProps) => {
   
   // --- THE STRICTOR GOLDEN BOOT ENGINE ---
-  const getGoldenBootId = () => {
+  const goldenBootId = useMemo(() => {
     // 1. Force lowercase and strictly filter for 'match' sessions only
-    const matchSessions = sessions.filter(s => {
-      const type = String(s.type || '').toLowerCase().trim();
-      return type === 'match';
-    });
+    const matchSessions = sessions.filter(isMatchSession);
     
     if (matchSessions.length === 0) return null;
 
     // 2. Map accuracy and volume for MATCHES ONLY
     const matchAccuracies = matchSessions.map(s => {
-      const placeKicks = s.kicks?.filter((k: any) => 
-        k.kickType === 'conversion' || k.kickType === 'penalty'
+      const placeKicks = s.kicks?.filter((k: Kick) => 
+        PLACE_KICK_TYPES.includes(k.kickType)
       ) || [];
-      const made = placeKicks.filter((k: any) => k.result === 'made').length;
+      const made = placeKicks.filter((k: Kick) => k.result === 'made').length;
       const acc = placeKicks.length > 0 ? (made / placeKicks.length) : 0;
       return { id: s.id, acc, volume: placeKicks.length };
     });
@@ -35,9 +68,21 @@ const MetricAudit = ({ sessions }: MetricAuditProps) => {
     }, null as any);
 
     return bestMatch && bestMatch.acc > 0 ? bestMatch.id : null;
-  };
+  }, [sessions]);
 
-  const goldenBootId = getGoldenBootId();
+  // Handle empty state
+  if (sessions.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <h2 className="mb-1 font-display text-[10px] font-black italic tracking-[0.2em] text-muted-foreground uppercase">
+          Session History
+        </h2>
+        <div className="text-center text-muted-foreground py-8 text-sm">
+          No sessions recorded yet
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -46,18 +91,16 @@ const MetricAudit = ({ sessions }: MetricAuditProps) => {
       </h2>
       
       {sessions.map((session) => {
-        const placeKicks = session.kicks?.filter((k: any) => k.kickType !== 'try' && k.kickType !== 'drop_goal') || [];
-        const made = placeKicks.filter((k: any) => k.result === 'made').length;
-        const accuracy = placeKicks.length > 0 ? Math.round((made / placeKicks.length) * 100) : 0;
+        const { made, total, percentage: accuracy } = calculateAccuracy(session.kicks);
         
-        // Ensure type check here matches the engine logic
-        const sessionType = String(session.type || '').toLowerCase().trim();
-        const isMatch = sessionType === 'match';
+        const isMatch = isMatchSession(session);
         const isGoldenBoot = isMatch && session.id === goldenBootId;
 
         return (
           <div 
             key={session.id}
+            role="article"
+            aria-label={`${isMatch ? 'Match' : 'Training'} session: ${session.teamName || session.drillName || 'Technical Drill'}`}
             className={`group relative overflow-hidden rounded-2xl border p-4 transition-all duration-300 ${
               isGoldenBoot 
                 ? 'border-yellow-500/50 bg-yellow-500/10 shadow-[0_0_20px_rgba(234,179,8,0.15)]' 
@@ -97,7 +140,7 @@ const MetricAudit = ({ sessions }: MetricAuditProps) => {
                     {accuracy}%
                   </div>
                   <div className="mt-1 text-[9px] font-bold uppercase tracking-tighter text-muted-foreground">
-                    {made}/{placeKicks.length}
+                    {made}/{total}
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/30 transition-colors group-hover:text-primary" />
