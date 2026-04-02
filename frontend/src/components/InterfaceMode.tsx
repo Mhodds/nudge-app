@@ -1,6 +1,8 @@
 import { Settings } from "lucide-react";
 import { useInterfaceMode } from "@/context/InterfaceModeContext";
 
+const modes = ["basic", "detailed"] as const;
+
 const InterfaceMode = () => {
   const { mode, setMode } = useInterfaceMode();
 
@@ -13,26 +15,19 @@ const InterfaceMode = () => {
         </span>
       </div>
       <div className="flex rounded-lg bg-secondary p-1">
-        <button
-          onClick={() => setMode("basic")}
-          className={`flex-1 rounded-md py-2 font-display text-sm font-bold tracking-wider transition-colors ${
-            mode === "basic"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground"
-          }`}
-        >
-          BASIC
-        </button>
-        <button
-          onClick={() => setMode("detailed")}
-          className={`flex-1 rounded-md py-2 font-display text-sm font-bold tracking-wider transition-colors ${
-            mode === "detailed"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground"
-          }`}
-        >
-          DETAILED
-        </button>
+        {modes.map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={`flex-1 rounded-md py-2 font-display text-sm font-bold tracking-wider transition-colors ${
+              mode === m
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground"
+            }`}
+          >
+            {m.toUpperCase()}
+          </button>
+        ))}
       </div>
     </div>
   );

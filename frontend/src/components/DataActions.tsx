@@ -42,24 +42,43 @@ const DataActions = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
-        for (const session of importedSessions) {
-          await supabase.from("sessions").insert({
-            id: session.id,
-            user_id: user.id,
-            type: session.type,
-            timestamp: session.timestamp,
-            team_name: session.teamName || null,
-            made_count: session.madeCount,
-            total_count: session.totalCount,
-            accuracy: session.accuracy,
-            avg_feel: session.avgFeel,
-          });
+        // Fetch existing sessions to check for duplicates
+        const { data: existingSessions } = await supabase
+          .from("sessions")
+          .select("id, timestamp, type")
+          .eq("user_id", user.id);
 
-          if (session.kicks.length > 0) {
+        const existingSessionIds = new Set(existingSessions?.map(s => s.id) || []);
+        let skippedCount = 0;
+        let importedCount = 0;
+
+        for (const session of importedSessions) {
+          // Skip if session already exists
+          if (existingSessionIds.has(session.id)) {
+            skippedCount++;
+            continue;
+          }
+
+          // Insert new session with generated ID
+          const { data: newSession } = await supabase
+            .from("sessions")
+            .insert({
+              user_id: user.id,
+              type: session.type,
+              timestamp: session.timestamp,
+              team_name: session.teamName || null,
+              made_count: session.madeCount,
+              total_count: session.totalCount,
+              accuracy: session.accuracy,
+              avg_feel: session.avgFeel,
+            })
+            .select()
+            .single();
+
+          if (newSession && session.kicks.length > 0) {
             await supabase.from("kicks").insert(
               session.kicks.map((k: Kick) => ({
-                id: k.id,
-                session_id: session.id,
+                session_id: newSession.id,
                 seq: k.seq,
                 result: k.result,
                 kick_type: k.kickType || null,
@@ -72,11 +91,18 @@ const DataActions = () => {
               }))
             );
           }
+
+          importedCount++;
         }
 
         queryClient.invalidateQueries({ queryKey: ["sessions"] });
         queryClient.invalidateQueries({ queryKey: ["perfectShift"] });
-        toast({ title: "Data restored", description: `${importedSessions.length} session(s) imported.` });
+
+        let message = `${importedCount} session(s) imported.`;
+        if (skippedCount > 0) {
+          message += ` ${skippedCount} duplicate(s) skipped.`;
+        }
+        toast({ title: "Data restored", description: message });
       } catch {
         toast({ title: "Restore failed", description: "Invalid backup file.", variant: "destructive" });
       }
