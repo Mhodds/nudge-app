@@ -163,7 +163,7 @@ export async function saveSession(session: Session): Promise<void> {
       distance: k.distance,
       angle: k.angle,
       wind: k.wind || null,
-      technical_miss: k.technical_miss || null,
+      technical_miss: k.technicalMiss || null,
       feel: k.feel || null,
       notes: k.notes || null,
     }));
@@ -205,7 +205,7 @@ export async function updateSession(updated: Session): Promise<void> {
     distance: k.distance,
     angle: k.angle,
     wind: k.wind || null,
-    technical_miss: k.technical_miss || null,
+    technical_miss: k.technicalMiss || null,
     feel: k.feel || null,
     notes: k.notes || null,
   }));

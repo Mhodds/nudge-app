@@ -1,21 +1,42 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  redirectTo?: string;
+}
+
+const LoadingSpinner = () => (
+  <div 
+    role="status" 
+    aria-live="polite"
+    className="flex min-h-screen items-center justify-center bg-background"
+  >
+    <div className="font-display text-sm tracking-widest text-muted-foreground animate-pulse">
+      LOADING…
+    </div>
+  </div>
+);
+
+const ProtectedRoute = ({ 
+  children, 
+  redirectTo = "/auth" 
+}: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="font-display text-sm tracking-widest text-muted-foreground animate-pulse">
-          LOADING…
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return (
+      <Navigate 
+        to={redirectTo} 
+        replace 
+        state={{ from: location.pathname }} 
+      />
+    );
   }
 
   return <>{children}</>;
