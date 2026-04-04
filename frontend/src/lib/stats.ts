@@ -58,8 +58,8 @@ export function getMatchStats(sessions: Session[]) {
   // 4. FORM TREND DELTA
   // Compares current 3-match window to the previous 3-match window
   let formDelta: number | null = null;
-  if (sortedByDateDesc.length >= 2) {
-    const prev3 = sortedByDateDesc.slice(1, 4);
+  if (sortedByDateDesc.length >= 4) {
+    const prev3 = sortedByDateDesc.slice(3, 6);
     const prev3Kicks = prev3
       .flatMap((s) => s.kicks)
       .filter((k) => k.kickType === "conversion" || k.kickType === "penalty");

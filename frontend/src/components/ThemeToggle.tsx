@@ -2,21 +2,16 @@ import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
-  // We default to true because NUDGE was born in the dark mode vibe
-  const [isDark, setIsDark] = useState(true);
+  // Read saved preference immediately to avoid a flash on load
+  const [isDark, setIsDark] = useState(() => localStorage.getItem("nudge-theme") !== "light");
 
   useEffect(() => {
-    // When the app loads, check if the user previously chose light mode
-    const savedTheme = localStorage.getItem("nudge-theme");
-    
-    if (savedTheme === "light") {
-      setIsDark(false);
-      document.documentElement.classList.remove("dark");
-    } else {
-      setIsDark(true);
+    if (isDark) {
       document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
     }
-  }, []);
+  }, [isDark]);
 
   const toggleTheme = () => {
     if (isDark) {

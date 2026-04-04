@@ -21,4 +21,6 @@ export interface Session {
   totalCount: number;
   accuracy: number;
   avgFeel: number;
+  tries?: number;
+  pointsTotal?: number;
 }

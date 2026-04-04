@@ -54,7 +54,7 @@ const Analytics = () => {
 
     const bootValue = activeKicks.reduce((acc, k) => {
       if (k.result !== 'made') return acc;
-      if (k.kickType === 'penalty' || k.kickType === 'drop_goal') return acc + 3;
+      if (k.kickType === 'penalty') return acc + 3;
       if (k.kickType === 'conversion') return acc + 2;
       return acc;
     }, 0);
@@ -182,8 +182,8 @@ const Analytics = () => {
                     {[
                       { label: "Accuracy %", m: matchStats.acc, t: trainStats.acc },
                       { label: "Strike Rate", m: matchStats.strikeRate, t: trainStats.strikeRate },
-                      { label: "Pts Total", m: matchStats.ptsTotal, t: "—" },
-                      { label: "Boot Value", m: matchStats.bootValue, t: "—" },
+                      { label: "Total Points", m: matchStats.ptsTotal, t: "—" },
+                      { label: "Kicking Points", m: matchStats.bootValue, t: "—" },
                       { label: "Live Streak", m: matchStats.liveStreak, t: trainStats.liveStreak, fire: true },
                       { label: "Best Streak", m: matchStats.bestStreak, t: trainStats.bestStreak },
                       { label: "Kick Feel", m: matchStats.feel, t: trainStats.feel },

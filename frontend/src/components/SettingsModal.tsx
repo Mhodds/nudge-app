@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Brain, Save } from "lucide-react";
+import { Brain, Save } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import {
   Dialog,
@@ -17,23 +17,29 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
   const { profile, updateMantra } = useProfile();
   const [mantraDraft, setMantraDraft] = useState("");
 
-  // Sync local state when profile loads
+  // Sync local state when profile loads or modal reopens
   useEffect(() => {
-    if (profile?.mantra) {
-      setMantraDraft(profile.mantra);
+    if (isOpen) {
+      setMantraDraft(profile?.mantra ?? "");
     }
-  }, [profile]);
+  }, [isOpen, profile?.mantra]);
 
   const handleSave = async () => {
-    await updateMantra.mutateAsync(mantraDraft);
-    onClose();
+    try {
+      await updateMantra.mutateAsync(mantraDraft);
+      onClose();
+    } catch {
+      // mutation error is surfaced via updateMantra.isError if needed
+    }
   };
+
+  const isDirty = mantraDraft !== (profile?.mantra ?? "");
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md border-card-border bg-card p-0 overflow-hidden shadow-2xl">
         <div className="p-6">
-          <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-6">
+          <DialogHeader className="pb-6">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-primary/10 p-2">
                 <Brain className="h-5 w-5 text-primary" />
@@ -42,12 +48,6 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                 MENTAL PILLARS
               </DialogTitle>
             </div>
-            <button 
-              onClick={onClose}
-              className="rounded-full p-2 text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -68,7 +68,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
             <button
               onClick={handleSave}
-              disabled={updateMantra.isPending}
+              disabled={updateMantra.isPending || !isDirty}
               className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-display text-sm font-black tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50"
             >
               <Save className="h-4 w-4 transition-transform group-hover:scale-110" />

@@ -18,6 +18,24 @@ const normalizeKick = (k: any): Kick => ({
   notes: k.notes || undefined,
 });
 
+// ── Shared row mapper ──
+
+function mapSession(s: any, kicksBySession: Record<string, Kick[]>): Session {
+  return {
+    id: s.id,
+    type: s.type as "match" | "training",
+    timestamp: s.timestamp,
+    teamName: s.team_name || undefined,
+    kicks: (kicksBySession[s.id] || []).sort((a, b) => a.seq - b.seq),
+    madeCount: s.made_count,
+    totalCount: s.total_count,
+    accuracy: s.accuracy,
+    avgFeel: Number(s.avg_feel),
+    tries: s.tries || 0,
+    pointsTotal: s.points_total || 0,
+  };
+}
+
 // ── Supabase-backed async functions ──
 
 export async function getSessions(): Promise<Session[]> {
@@ -43,19 +61,7 @@ export async function getSessions(): Promise<Session[]> {
     kicksBySession[k.session_id].push(mapped);
   }
 
-  return sessions.map((s) => ({
-    id: s.id,
-    type: s.type as "match" | "training",
-    timestamp: s.timestamp,
-    teamName: s.team_name || undefined,
-    kicks: (kicksBySession[s.id] || []).sort((a, b) => a.seq - b.seq),
-    madeCount: s.made_count,
-    totalCount: s.total_count,
-    accuracy: s.accuracy,
-    avgFeel: Number(s.avg_feel),
-    tries: s.tries || 0,
-    pointsTotal: s.points_total || 0,
-  }));
+  return sessions.map((s) => mapSession(s, kicksBySession));
 }
 
 // FIXED: Added back the paginated fetch that was missing
@@ -88,19 +94,7 @@ export async function getSessionsPaginated(
     kicksBySession[k.session_id].push(mapped);
   }
 
-  return sessions.map((s) => ({
-    id: s.id,
-    type: s.type as "match" | "training",
-    timestamp: s.timestamp,
-    teamName: s.team_name || undefined,
-    kicks: (kicksBySession[s.id] || []).sort((a, b) => a.seq - b.seq),
-    madeCount: s.made_count,
-    totalCount: s.total_count,
-    accuracy: s.accuracy,
-    avgFeel: Number(s.avg_feel),
-    tries: s.tries || 0,
-    pointsTotal: s.points_total || 0,
-  }));
+  return sessions.map((s) => mapSession(s, kicksBySession));
 }
 
 export async function getSession(id: string): Promise<Session | undefined> {
