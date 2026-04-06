@@ -2,10 +2,12 @@ import { useState, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { buildSession } from "@/lib/sessions";
 import { useSaveSession } from "@/hooks/useSessions";
+import { useProfile } from "@/hooks/useProfile";
 import { Kick } from "@/types/session";
 import SubmitOverlay from "@/components/SubmitOverlay";
-import { CheckCircle, Circle, Trash2, StickyNote } from "lucide-react";
+import { CheckCircle, Circle, Trash2, Pencil, Check, X } from "lucide-react";
 import WindDial from "@/components/WindDial";
+import KickEditorFields from "@/components/KickEditorFields";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -23,22 +25,48 @@ const INITIAL_FORM_STATE = {
   technicalMiss: "",
   isShort: false,
   feel: 0,
-  notes: "",
 };
 
 const MatchDay = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showDebrief, setShowDebrief] = useState(false);
+  const [debriefNotes, setDebriefNotes] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const { mode } = useInterfaceMode();
   const saveSessionMutation = useSaveSession();
+  const { profile, updateTagLibrary } = useProfile();
   const { teamName } = (location.state as { teamName?: string }) || {};
 
   const [form, setForm] = useState(INITIAL_FORM_STATE);
   const [kicks, setKicks] = useState<Kick[]>([]);
+  const [editingKickId, setEditingKickId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<Partial<Kick>>({});
+  const [pendingTags, setPendingTags] = useState<string[]>([]);
+  const [showTagRow, setShowTagRow] = useState(false);
+  const [pendingTagInput, setPendingTagInput] = useState("");
 
   const isDetailed = mode === "detailed";
+
+  // Tag library: profile tags + tags used in this session
+  const tagLibrary = useMemo(() => {
+    const fromProfile = profile?.tag_library || [];
+    const fromKicks = kicks.flatMap(k => k.tags || []);
+    return [...new Set([...fromProfile, ...fromKicks])];
+  }, [kicks, profile?.tag_library]);
+
+  const addTagToKick = useCallback((kickId: string, tag: string) => {
+    setKicks(prev => prev.map(k =>
+      k.id === kickId ? { ...k, tags: [...new Set([...(k.tags || []), tag])] } : k
+    ));
+  }, []);
+
+  const removeTagFromKick = useCallback((kickId: string, tag: string) => {
+    setKicks(prev => prev.map(k =>
+      k.id === kickId ? { ...k, tags: (k.tags || []).filter(t => t !== tag) } : k
+    ));
+  }, []);
 
   const stats = useMemo(() => {
     const placeKicks = kicks.filter((k) => k.kickType === "conversion" || k.kickType === "penalty");
@@ -56,7 +84,12 @@ const MatchDay = () => {
     return basicFields && detailedFields;
   }, [form, isDetailed]);
 
-  const resetForm = useCallback(() => setForm(INITIAL_FORM_STATE), []);
+  const resetForm = useCallback(() => {
+    setForm(INITIAL_FORM_STATE);
+    setPendingTags([]);
+    setShowTagRow(false);
+    setPendingTagInput("");
+  }, []);
 
   const updateForm = (updates: Partial<typeof INITIAL_FORM_STATE>) => {
     setForm(prev => ({ ...prev, ...updates }));
@@ -74,34 +107,47 @@ const MatchDay = () => {
         kickType: activeType as Kick["kickType"],
         distance: isPlaceKick ? form.distance : "",
         angle: isPlaceKick ? form.angle : "",
-        notes: form.notes || undefined,
         ...(isDetailed && isPlaceKick && {
           wind: form.windIntensity === "still" ? "STILL" : `${form.windIntensity}-${form.windAngle}`,
-          technicalMiss: result === "miss" 
+          technicalMiss: result === "miss"
             ? [form.technicalMiss, form.isShort ? "Short" : ""].filter(Boolean).join(" + ") || undefined
             : undefined,
           feel: form.feel,
         }),
+        tags: pendingTags.length ? [...pendingTags] : undefined,
       };
 
       setKicks((prev) => [...prev, newKick]);
       resetForm();
     },
-    [form, kicks.length, isDetailed, resetForm]
+    [form, kicks.length, isDetailed, resetForm, pendingTags]
   );
 
   const deleteKick = useCallback((id: string) => {
+    setEditingKickId(null);
     setKicks((prev) => {
       const filtered = prev.filter((k) => k.id !== id);
       return filtered.map((k, i) => ({ ...k, seq: i + 1 }));
     });
   }, []);
 
-  const handleSubmitSet = async () => {
+  const startEdit = useCallback((kick: Kick) => {
+    setEditingKickId(kick.id);
+    setEditDraft({ ...kick });
+  }, []);
+
+  const saveEdit = useCallback(() => {
+    if (!editingKickId) return;
+    setKicks((prev) => prev.map((k) => k.id === editingKickId ? { ...k, ...editDraft } : k));
+    setEditingKickId(null);
+  }, [editingKickId, editDraft]);
+
+  const handleSubmitSet = async (notes?: string) => {
     if (kicks.length === 0) return;
+    setShowDebrief(false);
     setSubmitting(true);
     try {
-      const session = buildSession("match", kicks, teamName);
+      const session = buildSession("match", kicks, teamName, notes);
       await saveSessionMutation.mutateAsync(session);
       navigate(`/session/${session.id}`);
     } finally {
@@ -122,7 +168,7 @@ const MatchDay = () => {
           </button>
           <div className="flex items-center gap-2">
             <button onClick={() => kicks.length > 0 ? setShowExitConfirm(true) : navigate("/")} className="rounded-lg border border-card-border px-4 py-2 font-display text-xs font-bold tracking-wider text-muted-foreground transition-colors hover:border-destructive hover:text-destructive">CANCEL</button>
-            <button onClick={handleSubmitSet} className="rounded-lg bg-matchday px-5 py-2 font-display text-xs font-bold tracking-wider text-primary-foreground shadow-lg shadow-matchday/20">SUBMIT SET</button>
+            <button onClick={() => kicks.length > 0 && setShowDebrief(true)} className="rounded-lg bg-matchday px-5 py-2 font-display text-xs font-bold tracking-wider text-primary-foreground shadow-lg shadow-matchday/20">SUBMIT SET</button>
           </div>
         </div>
 
@@ -204,14 +250,70 @@ const MatchDay = () => {
 
         {/* LOGGING CONTROLS */}
         <div className="space-y-6">
-          <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card px-4 py-3">
-            <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input type="text" value={form.notes} onChange={(e) => updateForm({ notes: e.target.value })} placeholder="NOTES..." className="w-full bg-transparent font-display text-[11px] font-bold tracking-wider text-foreground placeholder:text-muted-foreground focus:outline-none" />
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
             <button onClick={() => handleLog("try")} className="flex items-center justify-center gap-2 rounded-xl border border-matchday/30 bg-matchday/5 py-4 font-display text-xs font-black tracking-[0.2em] text-matchday transition-all active:scale-95 italic">TRY</button>
             <button onClick={() => handleLog("drop_goal")} className="flex items-center justify-center gap-2 rounded-xl border border-matchday/30 bg-matchday/5 py-4 font-display text-xs font-black tracking-[0.2em] text-matchday transition-all active:scale-95 italic">DROP GOAL</button>
+          </div>
+
+          {/* PRE-KICK TAG ROW */}
+          <div className="rounded-xl border border-card-border bg-card overflow-hidden">
+            <button
+              onClick={() => setShowTagRow(v => !v)}
+              className="flex w-full items-center gap-2 px-3 py-2.5"
+            >
+              <span className="font-display text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground italic">TAGS</span>
+              <span className="font-display text-[9px] text-muted-foreground">{showTagRow ? "▴" : "▾"}</span>
+              {pendingTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 ml-1">
+                  {pendingTags.map(tag => (
+                    <span key={tag} onClick={e => { e.stopPropagation(); setPendingTags(p => p.filter(t => t !== tag)); }}
+                      className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 border border-primary/30 px-2 py-0.5 font-display text-[9px] font-bold text-primary uppercase tracking-wider">
+                      {tag} <X className="h-2 w-2" />
+                    </span>
+                  ))}
+                </div>
+              )}
+            </button>
+            {showTagRow && (
+              <div className="px-3 pb-3 border-t border-card-border pt-2 flex flex-col gap-2">
+                {tagLibrary.filter(t => !pendingTags.includes(t)).length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {tagLibrary.filter(t => !pendingTags.includes(t)).map(tag => (
+                      <button key={tag} onClick={() => setPendingTags(p => [...p, tag])}
+                        className="rounded-full border border-card-border bg-secondary px-2 py-0.5 font-display text-[9px] font-bold text-muted-foreground uppercase tracking-wider hover:border-primary/40 hover:text-primary transition-colors">
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <input type="text" value={pendingTagInput} onChange={e => setPendingTagInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key !== "Enter") return;
+                      const t = pendingTagInput.trim().toLowerCase();
+                      if (!t) return;
+                      if (!pendingTags.includes(t)) setPendingTags(p => [...p, t]);
+                      const newLib = [...new Set([...(profile?.tag_library || []), t])];
+                      updateTagLibrary.mutate(newLib);
+                      setPendingTagInput("");
+                    }}
+                    placeholder="New tag..."
+                    className="flex-1 rounded-lg border border-card-border bg-secondary px-2 py-1 font-display text-[9px] font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 uppercase tracking-wider"
+                  />
+                  <button onClick={() => {
+                    const t = pendingTagInput.trim().toLowerCase();
+                    if (!t) return;
+                    if (!pendingTags.includes(t)) setPendingTags(p => [...p, t]);
+                    const newLib = [...new Set([...(profile?.tag_library || []), t])];
+                    updateTagLibrary.mutate(newLib);
+                    setPendingTagInput("");
+                  }}
+                    className="rounded-lg border border-card-border bg-card px-2 py-1 font-display text-[9px] font-bold text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors uppercase tracking-wider">
+                    ADD
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -231,38 +333,69 @@ const MatchDay = () => {
                 <div className="rounded-xl border border-dashed border-card-border p-8 text-center"><p className="font-display text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 italic">Log First Kick...</p></div>
               ) : (
                 [...kicks].reverse().map((kick) => (
-                  <div key={kick.id} className="rounded-xl border border-card-border bg-card px-4 py-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-[10px] font-bold text-muted-foreground">#{kick.seq}</span>
-                        {kick.result === "made" ? <CheckCircle className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-training" />}
-                        <span className="font-display text-[10px] font-black uppercase tracking-widest text-foreground italic">
-                          {kick.kickType.toUpperCase()} {kick.distance && `• ${kick.distance}`} {kick.angle && `• ${kick.angle}`}
-                        </span>
+                  editingKickId === kick.id ? (
+                    <div key={kick.id} className="rounded-xl border border-primary/50 bg-card px-4 py-3 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-card-border pb-2 mb-1">
+                        <span className="font-display text-[10px] font-black uppercase tracking-widest text-primary italic">EDIT KICK #{kick.seq}</span>
+                        <div className="flex items-center gap-2">
+                          <button onClick={saveEdit} className="rounded bg-success/20 px-2 py-1 text-success hover:bg-success/30 transition-colors"><Check className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => setEditingKickId(null)} className="rounded bg-destructive/20 px-2 py-1 text-destructive hover:bg-destructive/30 transition-colors"><X className="h-3.5 w-3.5" /></button>
+                        </div>
                       </div>
-                      <button onClick={() => deleteKick(kick.id)} className="text-muted-foreground/40 hover:text-destructive transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <KickEditorFields draft={editDraft} setDraft={setEditDraft} tagLibrary={tagLibrary} />
                     </div>
-
-                    {(kick.wind || (kick.feel && kick.feel > 0) || kick.notes || (kick.result === 'miss' && kick.technicalMiss)) && (
-                      <div className="ml-7 mt-2 flex flex-col gap-1.5">
-                        {kick.result === 'miss' && kick.technicalMiss && (
-                          <div className="flex items-center"><span className="rounded bg-training/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-training uppercase border border-training/20">{kick.technicalMiss}</span></div>
-                        )}
-                        {(kick.wind || (kick.feel && kick.feel > 0)) && (
-                          <div className="flex items-center gap-3">
-                            {kick.wind && <span className="rounded bg-matchday/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-matchday uppercase border border-matchday/20">WIND: {kick.wind}</span>}
-                            {kick.feel && kick.feel > 0 && (
-                              <div className="flex items-center gap-1">
-                                <span className="font-display text-[8px] font-bold tracking-widest text-muted-foreground uppercase">FEEL</span>
-                                <div className="flex items-center gap-0.5">{[1, 2, 3, 4, 5].map((v) => (<div key={v} className={`h-1 w-1 rounded-full ${v <= (kick.feel || 0) ? 'bg-pink-500' : 'bg-secondary border border-card-border'}`} />))}</div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {kick.notes && (<div className="font-body text-[10px] italic text-muted-foreground flex items-center gap-1"><StickyNote className="h-2.5 w-2.5 shrink-0" /><span>{kick.notes}</span></div>)}
+                  ) : (
+                    <div key={kick.id} className="rounded-xl border border-card-border bg-card px-4 py-3 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] font-bold text-muted-foreground">#{kick.seq}</span>
+                          {kick.result === "made" ? <CheckCircle className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-training" />}
+                          <span className="font-display text-[10px] font-black uppercase tracking-widest text-foreground italic">
+                            {kick.kickType.toUpperCase()} {kick.distance && `• ${kick.distance}`} {kick.angle && `• ${kick.angle}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => startEdit(kick)} className="text-muted-foreground/40 hover:text-primary transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => deleteKick(kick.id)} className="text-muted-foreground/40 hover:text-destructive transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {(kick.wind || (kick.feel && kick.feel > 0) || (kick.result === 'miss' && kick.technicalMiss)) && (
+                        <div className="ml-7 mt-2 flex flex-col gap-1.5">
+                          {kick.result === 'miss' && kick.technicalMiss && (
+                            <div className="flex items-center"><span className="rounded bg-training/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-training uppercase border border-training/20">{kick.technicalMiss}</span></div>
+                          )}
+                          {(kick.wind || (kick.feel && kick.feel > 0)) && (
+                            <div className="flex items-center gap-3">
+                              {kick.wind && <span className="rounded bg-matchday/10 px-1.5 py-0.5 font-display text-[8px] font-bold tracking-widest text-matchday uppercase border border-matchday/20">WIND: {kick.wind}</span>}
+                              {kick.feel && kick.feel > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <span className="font-display text-[8px] font-bold tracking-widest text-muted-foreground uppercase">FEEL</span>
+                                  <div className="flex items-center gap-0.5">{[1, 2, 3, 4, 5].map((v) => (<div key={v} className={`h-1 w-1 rounded-full ${v <= (kick.feel || 0) ? 'bg-pink-500' : 'bg-secondary border border-card-border'}`} />))}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* QUICK-TAP TAGS */}
+                      <div className="mt-2 ml-7 flex flex-wrap gap-1">
+                        {(kick.tags || []).map(tag => (
+                          <button key={tag} onClick={() => removeTagFromKick(kick.id, tag)}
+                            className="inline-flex items-center gap-1 rounded-full bg-primary/15 border border-primary/30 px-2 py-0.5 font-display text-[9px] font-bold text-primary uppercase tracking-wider">
+                            {tag} <X className="h-2 w-2" />
+                          </button>
+                        ))}
+                        {tagLibrary.filter(t => !(kick.tags || []).includes(t)).slice(0, 3).map(tag => (
+                          <button key={tag} onClick={() => addTagToKick(kick.id, tag)}
+                            className="rounded-full border border-card-border bg-secondary px-2 py-0.5 font-display text-[9px] font-bold text-muted-foreground uppercase tracking-wider hover:border-primary/40 hover:text-primary transition-colors">
+                            + {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
                 ))
               )}
             </div>
@@ -283,6 +416,27 @@ const MatchDay = () => {
           </div>
         </div>
       </div>
+
+      {/* SESSION DEBRIEF */}
+      {showDebrief && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-t-2xl border border-card-border bg-card p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+            <p className="mb-1 font-display text-[9px] font-bold tracking-[0.3em] text-muted-foreground uppercase">SESSION DEBRIEF</p>
+            <h2 className="mb-4 font-display text-lg font-black italic tracking-tight text-foreground">How did it go?</h2>
+            <textarea
+              value={debriefNotes}
+              onChange={e => setDebriefNotes(e.target.value)}
+              placeholder="Work ons, conditions, what to remember..."
+              rows={4}
+              className="w-full rounded-xl border border-card-border bg-secondary px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary/50 focus:outline-none resize-none"
+            />
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => handleSubmitSet()} className="flex-1 rounded-xl border border-card-border py-3 font-display text-xs font-bold tracking-wider text-muted-foreground transition-colors hover:border-matchday hover:text-matchday">SKIP</button>
+              <button onClick={() => handleSubmitSet(debriefNotes)} disabled={!debriefNotes.trim()} className="flex-1 rounded-xl bg-matchday py-3 font-display text-xs font-bold tracking-wider text-white shadow-lg shadow-matchday/20 disabled:opacity-40">ADD NOTE</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
         <AlertDialogContent>

@@ -23,7 +23,6 @@ export const useProfile = () => {
     enabled: !!user,
   });
 
-  // 2. Update the profile (for the settings page later)
   const updateMantra = useMutation({
     mutationFn: async (newMantra: string) => {
       const { error } = await supabase
@@ -37,5 +36,18 @@ export const useProfile = () => {
     },
   });
 
-  return { profile, isLoading, updateMantra };
+  const updateTagLibrary = useMutation({
+    mutationFn: async (tags: string[]) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ tag_library: tags.length ? tags : null })
+        .eq("id", user?.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
+    },
+  });
+
+  return { profile, isLoading, updateMantra, updateTagLibrary };
 };

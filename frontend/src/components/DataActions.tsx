@@ -87,7 +87,6 @@ const DataActions = () => {
                 wind: k.wind || null,
                 technical_miss: k.technicalMiss || null,
                 feel: k.feel || null,
-                notes: k.notes || null,
               }))
             );
           }

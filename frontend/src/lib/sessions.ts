@@ -15,7 +15,7 @@ const normalizeKick = (k: any): Kick => ({
   wind: k.wind || undefined,
   technicalMiss: k.technical_miss || undefined,
   feel: k.feel || undefined,
-  notes: k.notes || undefined,
+  tags: k.tags || [],
 });
 
 // ── Shared row mapper ──
@@ -33,6 +33,7 @@ function mapSession(s: any, kicksBySession: Record<string, Kick[]>): Session {
     avgFeel: Number(s.avg_feel),
     tries: s.tries || 0,
     pointsTotal: s.points_total || 0,
+    notes: s.notes || undefined,
   };
 }
 
@@ -124,6 +125,7 @@ export async function getSession(id: string): Promise<Session | undefined> {
     avgFeel: Number(s.avg_feel),
     tries: s.tries || 0,
     pointsTotal: s.points_total || 0,
+    notes: s.notes || undefined,
   };
 }
 
@@ -143,6 +145,7 @@ export async function saveSession(session: Session): Promise<void> {
     avg_feel: session.avgFeel,
     tries: session.tries || 0,
     points_total: session.pointsTotal || 0,
+    notes: session.notes || null,
   });
 
   if (sessionError) throw sessionError;
@@ -159,7 +162,7 @@ export async function saveSession(session: Session): Promise<void> {
       wind: k.wind || null,
       technical_miss: k.technicalMiss || null,
       feel: k.feel || null,
-      notes: k.notes || null,
+      tags: k.tags?.length ? k.tags : null,
     }));
 
     const { error: kicksError } = await supabase.from("kicks").insert(kickRows);
@@ -185,6 +188,7 @@ export async function updateSession(updated: Session): Promise<void> {
       avg_feel: updated.avgFeel,
       tries: updated.tries || 0,
       points_total: points,
+      notes: updated.notes || null,
     })
     .eq("id", updated.id);
 
@@ -201,7 +205,7 @@ export async function updateSession(updated: Session): Promise<void> {
     wind: k.wind || null,
     technical_miss: k.technicalMiss || null,
     feel: k.feel || null,
-    notes: k.notes || null,
+    tags: k.tags?.length ? k.tags : null,
   }));
 
   if (kickRows.length > 0) {
@@ -227,7 +231,8 @@ export async function deleteSession(id: string): Promise<void> {
 export function buildSession(
   type: "match" | "training",
   kicks: Kick[],
-  teamName?: string
+  teamName?: string,
+  notes?: string
 ): Session {
   const placeKicks = kicks.filter((k) => k.kickType !== "try" && k.kickType !== "drop_goal");
   const madeCount = placeKicks.filter((k) => k.result === "made").length;
@@ -260,6 +265,7 @@ export function buildSession(
     avgFeel,
     tries: triesCount,
     pointsTotal: (triesCount * 5) + kickPoints,
+    notes: notes || undefined,
   };
 }
 

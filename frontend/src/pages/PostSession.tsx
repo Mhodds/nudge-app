@@ -1,33 +1,20 @@
 import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  Trash2, Pencil, X, Check, CheckCircle, Circle, Plus, StickyNote,
+  Trash2, Pencil, X, Check, CheckCircle, Circle, Plus,
 } from "lucide-react";
 import { useSession, useUpdateSession, useDeleteSession } from "@/hooks/useSessions";
 import { Kick, Session } from "@/types/session";
 import BottomNav from "@/components/BottomNav";
 import EfficiencyMatrix from "@/components/EfficiencyMatrix";
 import MissAnalysisChart from "@/components/MissAnalysisChart";
-import WindDial from "@/components/WindDial"; // <-- Imported our Shared Component!
+import KickEditorFields from "@/components/KickEditorFields";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const distanceBands = ["0-22m", "22-30m", "30-40m", "40+m"];
-const anglePositions = [
-  { key: "SL-L", label: "SL" },
-  { key: "5m-L", label: "5m" },
-  { key: "15m-L", label: "15m" },
-  { key: "FR", label: "FR" },
-  { key: "15m-R", label: "15m" },
-  { key: "5m-R", label: "5m" },
-  { key: "SL-R", label: "SL" },
-];
-
-const missOptions = ["Pure", "Hook", "Push"];
-const feelOptions = [1, 2, 3, 4, 5];
 
 const PostSession = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,9 +28,11 @@ const PostSession = () => {
   const [showAppend, setShowAppend] = useState(false);
   const [appendDraft, setAppendDraft] = useState<Partial<Kick>>({
     distance: "", angle: "", result: undefined, kickType: "conversion",
-    wind: "STILL", technicalMiss: "", feel: 0, notes: "",
+    wind: "STILL", technicalMiss: "", feel: 0,
   });
   const [editingMeta, setEditingMeta] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
 
   const session = localSession || fetchedSession;
 
@@ -125,11 +114,11 @@ const PostSession = () => {
       wind: d.wind || "STILL",
       technicalMiss: d.technicalMiss || undefined,
       feel: d.feel || undefined,
-      notes: d.notes || undefined,
+      tags: d.tags?.length ? d.tags : undefined,
     };
     const newKicks = [...session.kicks, newKick];
     persist({ ...session, kicks: newKicks, ...recompute(newKicks) });
-    setAppendDraft({ distance: "", angle: "", result: undefined, kickType: "conversion", wind: "STILL", technicalMiss: "", feel: 0, notes: "" });
+    setAppendDraft({ distance: "", angle: "", result: undefined, kickType: "conversion", wind: "STILL", technicalMiss: "", feel: 0 });
     setShowAppend(false);
   };
 
@@ -160,126 +149,6 @@ const PostSession = () => {
     { name: 'Unspecified', value: unspecifiedCount },
   ].filter(item => item.value > 0);
 
-  const renderEditorFields = (
-    draft: Partial<Kick>, 
-    setDraft: React.Dispatch<React.SetStateAction<Partial<Kick>>>
-  ) => {
-    // Adapter logic: translating string "low-LEFT" to variables for WindDial
-    const windValue = draft.wind || "STILL";
-    const isStill = windValue === "STILL";
-    const [currentIntensity, currentAngle] = isStill ? ["still", ""] : windValue.split("-");
-
-    const handleWindChange = (updates: { windIntensity?: string; windAngle?: string }) => {
-      const newIntensity = updates.windIntensity !== undefined ? updates.windIntensity : currentIntensity;
-      const newAngle = updates.windAngle !== undefined ? updates.windAngle : currentAngle;
-
-      if (newIntensity === "still") {
-        setDraft(prev => ({ ...prev, wind: "STILL" }));
-      } else {
-        setDraft(prev => ({ ...prev, wind: `${newIntensity}-${newAngle}` }));
-      }
-    };
-
-    const currentMiss = draft.technicalMiss || "";
-    const isShort = currentMiss.toLowerCase().includes("short");
-    const baseMiss = missOptions.find(m => currentMiss.toLowerCase().includes(m.toLowerCase())) || "";
-
-    const toggleBaseMiss = (b: string) => {
-      const newBase = baseMiss === b ? "" : b;
-      setDraft(prev => ({ ...prev, technicalMiss: [newBase, isShort ? "Short" : ""].filter(Boolean).join(" + ") }));
-    };
-
-    const toggleShort = () => {
-      setDraft(prev => ({ ...prev, technicalMiss: [baseMiss, !isShort ? "Short" : ""].filter(Boolean).join(" + ") }));
-    };
-
-    return (
-      <div className="flex flex-col gap-2 mt-2">
-        {/* RESULT */}
-        <div className="flex rounded-lg bg-secondary p-1">
-          {(["made", "miss"] as const).map((r) => (
-            <button key={r} onClick={() => setDraft((d) => ({ ...d, result: r, technicalMiss: r === 'made' ? undefined : d.technicalMiss }))}
-              className={`flex-1 rounded-md py-1.5 font-display text-[11px] font-bold tracking-wider transition-colors ${
-                draft.result === r ? (r === "made" ? "bg-success text-accent-foreground" : "bg-training text-accent-foreground") : "text-muted-foreground"
-              }`}
-            >{r.toUpperCase()}</button>
-          ))}
-        </div>
-
-        {/* TECHNICAL MISS */}
-        {draft.result === 'miss' && (
-          <div className="flex gap-1 rounded-lg bg-secondary p-1">
-            {missOptions.map(m => (
-              <button key={m} onClick={() => toggleBaseMiss(m)}
-                className={`flex-1 rounded-md py-1 font-display text-[10px] font-bold uppercase transition-colors ${
-                  baseMiss === m ? "bg-training/20 text-training border border-training/30" : "text-muted-foreground"
-                }`}
-              >{m}</button>
-            ))}
-            <div className="w-px bg-card-border mx-1" />
-            <button onClick={toggleShort}
-              className={`flex-1 rounded-md py-1 font-display text-[10px] font-bold uppercase transition-colors ${
-                isShort ? "bg-training text-background" : "text-muted-foreground"
-              }`}
-            >SHORT</button>
-          </div>
-        )}
-
-        {/* DISTANCE & ANGLE */}
-        {draft.kickType !== 'try' && draft.kickType !== 'drop_goal' && (
-          <>
-            <div className="flex rounded-lg bg-secondary p-1">
-              {distanceBands.map((opt) => (
-                <button key={opt} onClick={() => setDraft((d) => ({ ...d, distance: opt }))}
-                  className={`flex-1 rounded-md py-1.5 font-display text-[11px] font-bold tracking-wider transition-colors ${
-                    draft.distance === opt ? "bg-foreground text-background" : "text-muted-foreground"
-                  }`}
-                >{opt}</button>
-              ))}
-            </div>
-            <div className="flex rounded-lg bg-secondary p-1">
-              {anglePositions.map((opt) => (
-                <button key={opt.key} onClick={() => setDraft((d) => ({ ...d, angle: opt.key }))}
-                  className={`flex-1 rounded-md py-1.5 font-display text-[11px] font-bold tracking-wider transition-colors ${
-                    draft.angle === opt.key ? "bg-foreground text-background" : "text-muted-foreground"
-                  }`}
-                >{opt.label}</button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* REPLACED WITH SHARED COMPONENT */}
-        <div className="rounded-lg bg-secondary p-2">
-          <WindDial
-            intensity={currentIntensity}
-            angle={currentAngle}
-            onChange={handleWindChange}
-            activeColorClass="bg-primary text-primary-foreground shadow-sm"
-          />
-        </div>
-
-        {/* FEEL */}
-        <div className="flex rounded-lg bg-secondary p-1">
-          <div className="flex items-center px-3 font-display text-[9px] font-bold text-muted-foreground tracking-widest">FEEL</div>
-          {feelOptions.map((f) => (
-            <button key={f} onClick={() => setDraft((d) => ({ ...d, feel: d.feel === f ? undefined : f }))}
-              className={`flex-1 rounded-md py-1.5 font-display text-[11px] font-bold transition-colors ${
-                draft.feel === f ? "bg-pink-500 text-white" : "text-muted-foreground hover:bg-card"
-              }`}
-            >{f}</button>
-          ))}
-        </div>
-
-        {/* NOTES */}
-        <div className="flex items-center gap-2 rounded-lg border border-card-border bg-secondary px-3 py-2">
-          <StickyNote className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <input type="text" value={draft.notes || ""} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
-            placeholder="Notes..." className="w-full bg-transparent font-body text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -344,6 +213,39 @@ const PostSession = () => {
           </div>
         </div>
 
+        {(session.notes || editingNotes) && (
+          <div className="mb-6 rounded-xl border border-card-border bg-card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-display text-[9px] font-bold tracking-[0.3em] text-muted-foreground uppercase">SESSION DEBRIEF</span>
+              {!editingNotes && (
+                <button onClick={() => { setNotesDraft(session.notes || ""); setEditingNotes(true); }} className="text-muted-foreground hover:text-primary transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+              )}
+            </div>
+            {editingNotes ? (
+              <>
+                <textarea
+                  value={notesDraft}
+                  onChange={e => setNotesDraft(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-card-border bg-secondary px-3 py-2 font-body text-sm text-foreground focus:border-primary/50 focus:outline-none resize-none"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button onClick={() => { persist({ ...session, notes: notesDraft || undefined }); setEditingNotes(false); }}
+                    className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 font-display text-[11px] font-bold tracking-wider text-primary-foreground">
+                    <Check className="h-3.5 w-3.5" /> SAVE
+                  </button>
+                  <button onClick={() => setEditingNotes(false)}
+                    className="flex items-center gap-1 rounded-lg border border-card-border px-3 py-1.5 font-display text-[11px] font-bold tracking-wider text-muted-foreground">
+                    <X className="h-3.5 w-3.5" /> CANCEL
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="font-body text-sm text-foreground leading-relaxed">{session.notes}</p>
+            )}
+          </div>
+        )}
+
         <div className="mb-6">
           <h2 className="mb-3 font-display text-xs font-semibold tracking-widest text-section-title italic">EFFICIENCY MATRIX</h2>
           <EfficiencyMatrix sessions={[session]} />
@@ -369,7 +271,7 @@ const PostSession = () => {
             <div className="mb-3 rounded-xl border border-primary/30 bg-card p-4">
               <p className="mb-1 font-display text-[11px] font-bold tracking-wider text-primary">ADD KICK</p>
               
-              {renderEditorFields(appendDraft, setAppendDraft as any)}
+              <KickEditorFields draft={appendDraft} setDraft={setAppendDraft as any} />
 
               <div className="flex gap-2 mt-3">
                 <button onClick={appendKick} disabled={!appendDraft.result || !appendDraft.distance || !appendDraft.angle} className="flex-1 rounded-lg bg-primary py-2 font-display text-xs font-bold tracking-wider text-primary-foreground disabled:opacity-50">SAVE KICK</button>
@@ -393,7 +295,7 @@ const PostSession = () => {
                       </div>
                     </div>
                     
-                    {renderEditorFields(editDraft, setEditDraft as any)}
+                    <KickEditorFields draft={editDraft} setDraft={setEditDraft as any} />
                   </div>
                 );
               }
@@ -414,7 +316,7 @@ const PostSession = () => {
                     </div>
                   </div>
 
-                  {(kick.wind || (kick.feel && kick.feel > 0) || kick.notes || (kick.result === 'miss' && kick.technicalMiss)) && (
+                  {(kick.wind || (kick.feel && kick.feel > 0) || (kick.result === 'miss' && kick.technicalMiss) || (kick.tags && kick.tags.length > 0)) && (
                     <div className="ml-8 mt-2 flex flex-col gap-1.5">
                       {kick.result === 'miss' && kick.technicalMiss && (
                         <div className="flex items-center">
@@ -442,10 +344,13 @@ const PostSession = () => {
                           )}
                         </div>
                       )}
-                      {kick.notes && (
-                        <div className="font-body text-[11px] italic text-muted-foreground flex items-center gap-1">
-                          <StickyNote className="h-2.5 w-2.5 shrink-0" />
-                          <span>{kick.notes}</span>
+                      {kick.tags && kick.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {kick.tags.map(tag => (
+                            <span key={tag} className="rounded-full bg-primary/15 border border-primary/30 px-2 py-0.5 font-display text-[9px] font-bold text-primary uppercase tracking-wider">
+                              {tag}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>

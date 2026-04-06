@@ -8,7 +8,7 @@ export interface Kick {
   wind?: string;
   technicalMiss?: string;
   feel?: number;
-  notes?: string;
+  tags?: string[];
 }
 
 export interface Session {
@@ -23,4 +23,5 @@ export interface Session {
   avgFeel: number;
   tries?: number;
   pointsTotal?: number;
+  notes?: string;
 }

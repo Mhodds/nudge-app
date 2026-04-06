@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      profiles: {
+        Row: { id: string; mantra: string | null; tag_library: string[] | null }
+        Insert: { id: string; mantra?: string | null; tag_library?: string[] | null }
+        Update: { id?: string; mantra?: string | null; tag_library?: string[] | null }
+        Relationships: []
+      }
       kicks: {
         Row: {
           angle: string
@@ -21,10 +27,10 @@ export type Database = {
           feel: number | null
           id: string
           kick_type: string | null
-          notes: string | null
           result: string
           seq: number
           session_id: string
+          tags: string[] | null
           technical_miss: string | null
           wind: string | null
         }
@@ -34,10 +40,10 @@ export type Database = {
           feel?: number | null
           id?: string
           kick_type?: string | null
-          notes?: string | null
           result: string
           seq: number
           session_id: string
+          tags?: string[] | null
           technical_miss?: string | null
           wind?: string | null
         }
@@ -47,10 +53,10 @@ export type Database = {
           feel?: number | null
           id?: string
           kick_type?: string | null
-          notes?: string | null
           result?: string
           seq?: number
           session_id?: string
+          tags?: string[] | null
           technical_miss?: string | null
           wind?: string | null
         }
@@ -71,9 +77,12 @@ export type Database = {
           created_at: string
           id: string
           made_count: number
+          notes: string | null
+          points_total: number | null
           team_name: string | null
           timestamp: string
           total_count: number
+          tries: number | null
           type: string
           user_id: string
         }
@@ -83,9 +92,12 @@ export type Database = {
           created_at?: string
           id?: string
           made_count?: number
+          notes?: string | null
+          points_total?: number | null
           team_name?: string | null
           timestamp: string
           total_count?: number
+          tries?: number | null
           type: string
           user_id: string
         }
@@ -95,9 +107,12 @@ export type Database = {
           created_at?: string
           id?: string
           made_count?: number
+          notes?: string | null
+          points_total?: number | null
           team_name?: string | null
           timestamp?: string
           total_count?: number
+          tries?: number | null
           type?: string
           user_id?: string
         }
