@@ -15,6 +15,7 @@ import PostSession from "./pages/PostSession";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/match-day/track" element={<ProtectedRoute><MatchDay /></ProtectedRoute>} />
               <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
               <Route path="/session/:id" element={<ProtectedRoute><PostSession /></ProtectedRoute>} />
+              <Route path="/landing" element={<Landing />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

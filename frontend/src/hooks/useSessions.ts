@@ -51,12 +51,17 @@ export function useSession(id: string) {
   return useQuery({
     queryKey: ["session", id],
     queryFn: async () => {
-      // Try cloud first
-      const cloud = await getSession(id);
-      if (cloud) return cloud;
-      // Fall back to offline queue
-      const pending = await getPendingSessions();
-      return pending.find((s) => s.id === id) ?? undefined;
+      const [cloud, pending] = await Promise.all([
+        getSession(id),
+        getPendingSessions(),
+      ]);
+      const queued = pending.find((s) => s.id === id);
+
+      // Prefer whichever source has kick data — cloud can exist with empty kicks
+      // if the session row saved but the kicks insert failed
+      if (cloud && cloud.kicks.length > 0) return cloud;
+      if (queued) return queued;
+      return cloud ?? undefined;
     },
     enabled: !!id,
   });
@@ -74,7 +79,7 @@ export function usePerfectShiftId() {
       // 2. Strict Filter: MUST be a Match, MUST NOT be a drill
       const matchSessions = allSessions.filter(s => {
         const type = String(s.type || '').toLowerCase().trim();
-        const name = String(s.teamName || s.drillName || '').toLowerCase();
+        const name = String(s.teamName || '').toLowerCase();
         
         const isMatch = type === 'match' || type === 'game';
         const isNotTraining = !type.includes('train') && !type.includes('skill') && !name.includes('drill');

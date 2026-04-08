@@ -1,4 +1,4 @@
-package com.ruckkick.app;
+package com.nudgecheck.app;
 
 import com.getcapacitor.BridgeActivity;
 

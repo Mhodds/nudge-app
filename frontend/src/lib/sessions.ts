@@ -107,11 +107,15 @@ export async function getSession(id: string): Promise<Session | undefined> {
 
   if (!s) return undefined;
 
-  const { data: kicks } = await supabase
+  const { data: kicks, error: kicksFetchError } = await supabase
     .from("kicks")
     .select("*")
     .eq("session_id", id)
     .order("seq", { ascending: true });
+
+  if (kicksFetchError) {
+    console.error("[getSession] kicks fetch failed:", kicksFetchError);
+  }
 
   return {
     id: s.id,
@@ -166,7 +170,11 @@ export async function saveSession(session: Session): Promise<void> {
     }));
 
     const { error: kicksError } = await supabase.from("kicks").insert(kickRows);
-    if (kicksError) throw kicksError;
+    if (kicksError) {
+      // Rollback: remove session row so state stays consistent and offline queue fallback works
+      await supabase.from("sessions").delete().eq("id", session.id);
+      throw kicksError;
+    }
   }
 }
 
